@@ -11,14 +11,15 @@ int main(int argc,char const *argv[]){
 	struct sockaddr_in address;
 	int addr_len = sizeof(address);
 
-	char *hello = "Hello from server";
+	char *hello = "Hello from server\n";
 	
-
+	// Create new socket
 	if((server = socket(AF_INET,SOCK_STREAM,0))==0){
 		perror("Socket Error:");
 		exit(EXIT_FAILURE);
 	}
 
+	// Binding
 	address.sin_family = AF_INET;
 	address.sin_addr.s_addr = htonl(INADDR_ANY);
 	address.sin_port = htons(PORT);
@@ -29,6 +30,7 @@ int main(int argc,char const *argv[]){
 		perror("Bind Error: ");
 		exit(EXIT_FAILURE);
 	}
+	// Ready to accept new connection
 	if(listen(server,20) < 0){
 		perror("Listen Error: ");
 		exit(EXIT_FAILURE);
@@ -36,16 +38,19 @@ int main(int argc,char const *argv[]){
 	
 	while(1){
 		printf("\n----------Waiting fornew connection----------\n");
+		// Takes first connection request and create new socket
 		if((new_socket = accept(server,(struct sockaddr *)&address,(socklen_t*)&addr_len)) < 0){
 			perror("Accept Error: ");
 			exit(EXIT_FAILURE);
 		}
 
 		char buffer[10000] = {0};
-		long context = read(new_socket,buffer,10000);
+		// Read msg from client
+		read(new_socket,buffer,10000);
 		printf("%s\n",buffer);
+		// Sent mst to client
 		write(new_socket,hello, strlen(hello));
-		printf("-----------------Hello MSG sent-----------------");
+		printf("-----------------Hello MSG sent-----------------\n");
 		close(new_socket);
 	}
 	return 0;
