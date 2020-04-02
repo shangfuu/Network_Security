@@ -1,4 +1,5 @@
 CC= gcc
+CXX = g++
 CFLAGS = -g -W -Wall
 
 all: server client
