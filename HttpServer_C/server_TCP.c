@@ -1,63 +1,94 @@
-#include <stdlib.h>
-#include <sys/socket.h>
-#include <stdio.h>
-#include <string.h>
-#include <unistd.h>
-#include <netinet/in.h>
-#include <time.h>
-#include <signal.h>
-#include <arpa/inet.h>
+#include "http.h"
 
 #define BUFF_SIZE 4096
-#define LIMIT_CONNECT 50
 #define DEBUG(type, msg) printf(type, msg);
-
-int PORT = 8000;
-
-void http_header(int );
 
 void GET_request();
 void POST_request();
-int recv_request(char *);
 
+int recv_line(char *);
+
+void http_header(int );
 void handle_connect(int,struct sockaddr_in *);
 void Parsing_CMD(int,char const *[]);
 
-// Get the first EOL as request, and return the strlen of the request
-int recv_request(char *request){
-	char *EOL = "\r\n";
-	int EOL_match = 0;
-	char *ptr = request;
-
-	for(int i = 0; i < strlen(request); i++){
-		if(request[i] == EOL[EOL_match]){
-			EOL_match++;
-			if(EOL_match == strlen(EOL)){
-				*(ptr+1) = '\0';
-				return strlen(request);
-			}
-		}
-		else{
-			EOL_match = 0;
-		}
-		ptr++;
-	}
-	return 0;	// No EOL found
-}
 
 void handle_connect(int new_sockFD, struct sockaddr_in *client_addr){
 	
-	// Read the Client request
 	char request[BUFF_SIZE] = {0};	// Http request
+	char resource[BUFF_SIZE] = {0}; // Resource in server
 	int length;
+
+	// Read the Client request
 	read(new_sockFD, request, BUFF_SIZE);
 	
 	DEBUG("%s\n",request);
 	
-	length = recv_request(request);
+	// Read the first line of request
+	length = recv_line(request);
 	printf("Get request from %s:%d \"%s\"\n", inet_ntoa(client_addr->sin_addr), ntohs(client_addr->sin_port), request);
 
+	// Check if HTTP request
+	char *token;
+	if((token = strstr(request,"HTTP/1.1")) == NULL){
+		perror("Not Http/1.1: ");
+		exit(EXIT_FAILURE);
+	}
+	else{
+		
+		const char* delim = " ";
+		// Parsing the request into: Method, URL, Protocol Version
+		char *Method = strtok(request, delim);
+		char *Url = strtok(NULL,delim);
+		char *Protocol = strtok(NULL,delim);
 
+		printf("%s,%s,%s\n",Method,Url,Protocol);
+
+		// Get: method = 1, POST, method = 2
+		int method = -1;
+		if(strcmp(Method,"GET") == 0)
+			method = 1;
+		else if(strcmp(Method, "POST") == 0)
+			method = 2;
+
+
+		// Only handle the GET request or POST request
+		if(method == -1){
+			printf("Unknown Request!!\n");
+		}
+		else{
+			// When url end with '/', set it as "/DEFAULT_PAGE"
+			if(Url[strlen(Url)-1] == '/'){
+				strcat(Url, DEFAULT_PAGE);
+				DEBUG("%s\n",Url);
+			}
+
+			// The Url resource
+			strcpy(resource,ROOT);
+			strcat(resource,Url);	// e.g. "ROOT/xxx/DEFAULT_PAGE"
+			
+			DEBUG("Resource: %s\n",Url);
+			
+			// Open the resource file
+			int fd = open(resource,O_RDONLY);
+
+			// File not found
+			if (fd == -1){
+				printf("404 Not Found\n");
+				// Send 404 Header and 404.html
+
+			}
+			else{
+				// Send 200 Header
+				// Handle GET request
+				// Handle POST request
+			}
+		}
+
+		// Check if POST Method
+	}
+
+	
 	// Sent msg to client
 	http_header(new_sockFD);
 }
@@ -159,27 +190,27 @@ int main(int argc,char const *argv[]){
 			perror("Accept Error: ");
 			exit(EXIT_FAILURE);
 		}
-
-		// Fork Error
-		if((pid = fork()) < 0){
-			perror("Fork Error: ");
-			exit(EXIT_FAILURE);
-		}
-		else{
-			// Child process
-			if((pid = fork()) == 0){
-				// Only handle the connection
-				close(sockFD);
-				handle_connect(new_sockFD, &client_addr);
-				close(new_sockFD);
-				exit(EXIT_SUCCESS);	
+		else {
+			// Multi client
+			if((pid = fork()) < 0){	// Fork Error
+				perror("Fork Error: ");
+				exit(EXIT_FAILURE);
 			}
-			// Parent process
 			else{
-				close(new_sockFD);
+				// Child process
+				if((pid = fork()) == 0){
+					// Only handle the connection
+					close(sockFD);
+					handle_connect(new_sockFD, &client_addr);
+					close(new_sockFD);
+					exit(EXIT_SUCCESS);	
+				}
+				// Parent process
+				else{
+					close(new_sockFD);
+				}
 			}
 		}
-
 		printf("+++++ MSG sent +++++\n");
 	}
 

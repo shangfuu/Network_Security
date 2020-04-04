@@ -3,7 +3,7 @@ CXX = g++
 CFLAGS = -g -W -Wall
 
 all: server client
-server: server_TCP.c
+server: server_TCP.c http.h
 	$(CC) -o server.o server_TCP.c $(CFLAGS)
 client: client_TCP.c
 	$(CC) -o client.o client_TCP.c $(CFLAGS)
