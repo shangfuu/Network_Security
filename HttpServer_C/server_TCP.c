@@ -6,12 +6,20 @@
 void GET_request();
 void POST_request();
 
-int recv_line(char *);
+// int recv_line(char *);
 
-void http_header(int );
+void CGI(int,int);
+void http_header(int, char*);
 void handle_connect(int,struct sockaddr_in *);
-void Parsing_CMD(int,char const *[]);
+// void Parsing_CMD(int,char const *[]);
 
+void CGI(int new_sockFD, int fd) {
+
+	char buff[BUFF_SIZE] = {0};
+	read(fd, buff, BUFF_SIZE);
+	write(new_sockFD,buff,strlen(buff));
+	close(fd);
+}
 
 void handle_connect(int new_sockFD, struct sockaddr_in *client_addr){
 	
@@ -22,7 +30,7 @@ void handle_connect(int new_sockFD, struct sockaddr_in *client_addr){
 	// Read the Client request
 	read(new_sockFD, request, BUFF_SIZE);
 	
-	DEBUG("%s\n",request);
+	// DEBUG("%s\n",request);
 	
 	// Read the first line of request
 	length = recv_line(request);
@@ -42,7 +50,7 @@ void handle_connect(int new_sockFD, struct sockaddr_in *client_addr){
 		char *Url = strtok(NULL,delim);
 		char *Protocol = strtok(NULL,delim);
 
-		printf("%s,%s,%s\n",Method,Url,Protocol);
+		printf("Method: %s, Url: \"%s\", Protocol: %s\n",Method,Url,Protocol);
 
 		// Get: method = 1, POST, method = 2
 		int method = -1;
@@ -60,14 +68,13 @@ void handle_connect(int new_sockFD, struct sockaddr_in *client_addr){
 			// When url end with '/', set it as "/DEFAULT_PAGE"
 			if(Url[strlen(Url)-1] == '/'){
 				strcat(Url, DEFAULT_PAGE);
-				DEBUG("%s\n",Url);
 			}
 
 			// The Url resource
 			strcpy(resource,ROOT);
 			strcat(resource,Url);	// e.g. "ROOT/xxx/DEFAULT_PAGE"
 			
-			DEBUG("Resource: %s\n",Url);
+			DEBUG("Resource: %s\n",resource);
 			
 			// Open the resource file
 			int fd = open(resource,O_RDONLY);
@@ -75,30 +82,39 @@ void handle_connect(int new_sockFD, struct sockaddr_in *client_addr){
 			// File not found
 			if (fd == -1){
 				printf("404 Not Found\n");
-				// Send 404 Header and 404.html
+				// Send 404 Header
+				http_header(new_sockFD,STATUS_404);
+
+				// Open the 404.html
+				memset(resource, 0, BUFF_SIZE);
+				strcpy(resource,ROOT);
+				strcat(resource,"/404.html");
+
+				fd = open(resource,O_RDONLY);
+				
+				// Send the 404.html
+				CGI(new_sockFD,fd);
 
 			}
 			else{
 				// Send 200 Header
+				http_header(new_sockFD,STATUS_200);
+
 				// Handle GET request
+				if(method == 1)
+					CGI(new_sockFD,fd);
 				// Handle POST request
+				else if(method == 2)
+					return;
 			}
 		}
-
-		// Check if POST Method
 	}
-
-	
-	// Sent msg to client
-	http_header(new_sockFD);
 }
 
-void http_header(int new_sockFD){
-
-	char *msg = "<h1>Hello GG</h1>";
+void http_header(int new_sockFD, char * status){
 
 	// Version, Status code, Status message
-	write(new_sockFD, "HTTP/1.1 200 Ok\r\n",17);
+	write(new_sockFD, status, strlen(status));
 	
 	// Content-Type
 	write(new_sockFD,"Content-Type: text/html\r\n",25);
@@ -108,35 +124,18 @@ void http_header(int new_sockFD){
 	char buffer[BUFF_SIZE];
 	sprintf(buffer,"Date: %s\r",ctime(&current));
 	write(new_sockFD,buffer,strlen(buffer));
-	DEBUG("%s", buffer);
 	memset(buffer,0,sizeof(buffer));	
 
 	// Server name
 	char *server_name = "Server: HttpServerC\r\n";
 	write(new_sockFD,server_name,strlen(server_name));
-	DEBUG("%s", server_name);
-	
+
 	// Content-Length
-	sprintf(buffer,"Content-Length: %ld\r\n",strlen(msg));
-	write(new_sockFD,buffer,strlen(buffer));
-	DEBUG("%s", buffer);
+//	sprintf(buffer,"Content-Length: %ld\r\n",strlen(msg));
+//	write(new_sockFD,buffer,strlen(buffer));
+//	DEBUG("%s", buffer);
 	
 	write(new_sockFD,"\r\n",2);
-	// Send Message
-	write(new_sockFD,msg,strlen(msg));
-
-}
-
-// Parsing the cmd input
-void Parsing_CMD(int argc, char const *argv[]){
-	if(argc > 2){
-		perror("Input format: ./server.o {PORT}\n");
-		exit(EXIT_FAILURE);
-	}
-	else if (argc == 2){
-		PORT = atoi(argv[1]);
-	}
-	DEBUG("Open server at port: %d\n",PORT);
 }
 
 int main(int argc,char const *argv[]){
@@ -184,7 +183,6 @@ int main(int argc,char const *argv[]){
 	pid_t pid;
 
 	while(1){
-		printf("\n+++++ Waiting for new connection +++++\n");
 		// Takes first connection request and create new socket
 		if((new_sockFD = accept(sockFD,(struct sockaddr *)&client_addr,(socklen_t*)&cli_addr_len)) < 0){
 			perror("Accept Error: ");
@@ -201,9 +199,13 @@ int main(int argc,char const *argv[]){
 				if((pid = fork()) == 0){
 					// Only handle the connection
 					close(sockFD);
+					
+					printf("\n<---\n");
 					handle_connect(new_sockFD, &client_addr);
-					close(new_sockFD);
-					exit(EXIT_SUCCESS);	
+					printf("\n----->\n\n");
+
+					shutdown(new_sockFD,SHUT_RDWR);	// Close the socket
+					exit(EXIT_SUCCESS);
 				}
 				// Parent process
 				else{
@@ -211,7 +213,6 @@ int main(int argc,char const *argv[]){
 				}
 			}
 		}
-		printf("+++++ MSG sent +++++\n");
 	}
 
 	return 0;
