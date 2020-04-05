@@ -1,17 +1,11 @@
 #include "http.h"
 
-#define BUFF_SIZE 4096
-#define DEBUG(type, msg) printf(type, msg);
-
 void GET_request();
 void POST_request();
 
-// int recv_line(char *);
-
 void CGI(int,int);
-void http_header(int, char*);
 void handle_connect(int,struct sockaddr_in *);
-// void Parsing_CMD(int,char const *[]);
+
 
 void CGI(int new_sockFD, int fd) {
 
@@ -19,46 +13,45 @@ void CGI(int new_sockFD, int fd) {
 	read(fd, buff, BUFF_SIZE);
 	write(new_sockFD,buff,strlen(buff));
 	close(fd);
+
 }
 
 void handle_connect(int new_sockFD, struct sockaddr_in *client_addr){
 	
 	char request[BUFF_SIZE] = {0};	// Http request
 	char resource[BUFF_SIZE] = {0}; // Resource in server
-	int length;
 
-	// Read the Client request
+	// Recieve the Client request
 	read(new_sockFD, request, BUFF_SIZE);
 	
-	// DEBUG("%s\n",request);
+	DEBUG("%s \n",request);
 	
+	// Parsing the request header
+	Header* header = request_header(request);
+	printf("Header Method: %s, Url: %s, Protocol: %s\n",header->Method,header->Url,header->Protocol);
+	printf("Header CL: %s\n",header->Content_Length);
+	printf("Header CT: %s\n",header->Content_Type);
+	printf("Header QUERY: %s\n",header->Query);
+
 	// Read the first line of request
-	length = recv_line(request);
-	printf("Get request from %s:%d \"%s\"\n", inet_ntoa(client_addr->sin_addr), ntohs(client_addr->sin_port), request);
+	// recv_line(request);
+
+	printf("Get request from %s:%d \"%s %s %s\"\n", inet_ntoa(client_addr->sin_addr), ntohs(client_addr->sin_port), header->Method,header->Url,header->Protocol);
 
 	// Check if HTTP request
 	char *token;
-	if((token = strstr(request,"HTTP/1.1")) == NULL){
+	if((strcmp(header->Protocol,"HTTP/1.1")) != 0){
 		perror("Not Http/1.1: ");
 		exit(EXIT_FAILURE);
 	}
 	else{
-		
-		const char* delim = " ";
-		// Parsing the request into: Method, URL, Protocol Version
-		char *Method = strtok(request, delim);
-		char *Url = strtok(NULL,delim);
-		char *Protocol = strtok(NULL,delim);
-
-		printf("Method: %s, Url: \"%s\", Protocol: %s\n",Method,Url,Protocol);
 
 		// Get: method = 1, POST, method = 2
 		int method = -1;
-		if(strcmp(Method,"GET") == 0)
+		if(strcmp(header->Method,"GET") == 0)
 			method = 1;
-		else if(strcmp(Method, "POST") == 0)
+		else if(strcmp(header->Method, "POST") == 0)
 			method = 2;
-
 
 		// Only handle the GET request or POST request
 		if(method == -1){
@@ -66,24 +59,24 @@ void handle_connect(int new_sockFD, struct sockaddr_in *client_addr){
 		}
 		else{
 			// When url end with '/', set it as "/DEFAULT_PAGE"
-			if(Url[strlen(Url)-1] == '/'){
-				strcat(Url, DEFAULT_PAGE);
+			if(header->Url[strlen(header->Url)-1] == '/'){
+				strcat(header->Url, DEFAULT_PAGE);
 			}
 
 			// The Url resource
 			strcpy(resource,ROOT);
-			strcat(resource,Url);	// e.g. "ROOT/xxx/DEFAULT_PAGE"
+			strcat(resource,header->Url);	// e.g. "ROOT/xxx/DEFAULT_PAGE"
 			
 			DEBUG("Resource: %s\n",resource);
 			
 			// Open the resource file
 			int fd = open(resource,O_RDONLY);
 
-			// File not found
+			// File not found, cause 404
 			if (fd == -1){
 				printf("404 Not Found\n");
 				// Send 404 Header
-				http_header(new_sockFD,STATUS_404);
+				response_header(new_sockFD,STATUS_404);
 
 				// Open the 404.html
 				memset(resource, 0, BUFF_SIZE);
@@ -98,7 +91,7 @@ void handle_connect(int new_sockFD, struct sockaddr_in *client_addr){
 			}
 			else{
 				// Send 200 Header
-				http_header(new_sockFD,STATUS_200);
+				response_header(new_sockFD,STATUS_200);
 
 				// Handle GET request
 				if(method == 1)
@@ -109,33 +102,6 @@ void handle_connect(int new_sockFD, struct sockaddr_in *client_addr){
 			}
 		}
 	}
-}
-
-void http_header(int new_sockFD, char * status){
-
-	// Version, Status code, Status message
-	write(new_sockFD, status, strlen(status));
-	
-	// Content-Type
-	write(new_sockFD,"Content-Type: text/html\r\n",25);
-	
-	// Date
-	time_t current = time(NULL);
-	char buffer[BUFF_SIZE];
-	sprintf(buffer,"Date: %s\r",ctime(&current));
-	write(new_sockFD,buffer,strlen(buffer));
-	memset(buffer,0,sizeof(buffer));	
-
-	// Server name
-	char *server_name = "Server: HttpServerC\r\n";
-	write(new_sockFD,server_name,strlen(server_name));
-
-	// Content-Length
-//	sprintf(buffer,"Content-Length: %ld\r\n",strlen(msg));
-//	write(new_sockFD,buffer,strlen(buffer));
-//	DEBUG("%s", buffer);
-	
-	write(new_sockFD,"\r\n",2);
 }
 
 int main(int argc,char const *argv[]){
