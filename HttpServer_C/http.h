@@ -14,7 +14,7 @@
 #define DEFAULT_PAGE "index.html"
 #define LIMIT_CONNECT 50
 
-// #define HOST "YEE.com"
+#define HOST "HttpServerC.com"
 
 #define STATUS_404 "HTTP/1.1 404 Not Found\r\n"
 #define STATUS_200 "HTTP/1.1 200 Ok\r\n"
@@ -50,20 +50,20 @@ Header *request_header(char request[]){
 
 	// Get the Method, Url, Protocol
 	token = Find_EOL(req_cp);
-	printf("Token: %s\n",token);
-
-	const char* delim = " ";
+	
 	// Parsing the request into: Method, URL, Protocol Version
+	const char* delim = " ";
+	// Method
 	char *method = strtok(token, delim);
 	string_copy(&header->Method,method);
-
+	// Url
 	char *url = strtok(NULL,delim);
 	string_copy(&header->Url,url);
-
+	// Protocol
 	char *protocol = strtok(NULL,delim);
 	string_copy(&header->Protocol,protocol);
 
-	if (strcmp(header->Method,"POST") == 0){
+	if (strcmp(header->Method,"POST") == 0){	// Only used in POST
 		delim = ": ";
 		// Content-Length
 		if ((token = strstr(req_cp,"Content-Length")) != NULL) {
@@ -169,12 +169,8 @@ void response_header(int new_sockFD, char * status){
 
 	// Server name
 	char *server_name = "Server: HttpServerC\r\n";
+	sprintf(buffer, "Server: %s\r",HOST);
 	write(new_sockFD,server_name,strlen(server_name));
-
-	// Content-Length
-//	sprintf(buffer,"Content-Length: %ld\r\n",strlen(msg));
-//	write(new_sockFD,buffer,strlen(buffer));
-//	DEBUG("%s", buffer);
 	
 	write(new_sockFD,"\r\n",2);
 }

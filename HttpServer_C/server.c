@@ -39,13 +39,11 @@ void handle_connect(int new_sockFD, struct sockaddr_in *client_addr){
 	printf("Get request from %s:%d \"%s %s %s\"\n", inet_ntoa(client_addr->sin_addr), ntohs(client_addr->sin_port), header->Method,header->Url,header->Protocol);
 
 	// Check if HTTP request
-	char *token;
 	if((strcmp(header->Protocol,"HTTP/1.1")) != 0){
 		perror("Not Http/1.1: ");
 		exit(EXIT_FAILURE);
 	}
 	else{
-
 		// Get: method = 1, POST, method = 2
 		int method = -1;
 		if(strcmp(header->Method,"GET") == 0)
@@ -98,7 +96,7 @@ void handle_connect(int new_sockFD, struct sockaddr_in *client_addr){
 					CGI(new_sockFD,fd);
 				// Handle POST request
 				else if(method == 2)
-					return;
+					CGI(new_sockFD,fd);
 			}
 		}
 	}
