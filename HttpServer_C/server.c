@@ -1,18 +1,81 @@
 #include "http.h"
 
-void GET_request();
-void POST_request();
+void CGI(int,char*,char* , Header);
+void handle_connect(int, struct sockaddr_in *);
 
-void CGI(int,int);
-void handle_connect(int,struct sockaddr_in *);
+void CGI(int new_sockFD, char* cgi_type, char* file_name, Header header) {
+	// Create two pipe used to connect with CGI
+	int cgiSTDIN[2];	// Will used to dup stdin
+    int cgiSTDOUT[2];	// Will used to dup stdout
+	if(pipe(cgiSTDIN)<0){
+        perror("Pipe Error: ");
+        exit(EXIT_FAILURE);
+    }
+    if(pipe(cgiSTDOUT)<0){
+        perror("Pipe Error: ");
+        exit(EXIT_FAILURE);
+    }
 
+	pid_t pid;
+	// Fork a child to handle CGI
+	if((pid = fork()) < 0){
+		perror("Fork Error at CGI: ");
+		exit(EXIT_FAILURE);
+	}
+	else{
+		// Child process
+		if(pid == 0){
+			// Close unused pipe
+			close(cgiSTDIN[1]);
+			close(cgiSTDOUT[0]);
 
-void CGI(int new_sockFD, int fd) {
+			// Redirect STDOUT of CGI to cgiSTDIN
+			dup2(cgiSTDOUT[1],STDOUT_FILENO);
+			// Redirect STDIN of CGI to cgiSTDOUT
+			dup2(cgiSTDIN[0],STDIN_FILENO);
 
-	char buff[BUFF_SIZE] = {0};
-	read(fd, buff, BUFF_SIZE);
-	write(new_sockFD,buff,strlen(buff));
-	close(fd);
+			// Close old fd after redirect
+			close(cgiSTDIN[0]);
+			close(cgiSTDOUT[1]);
+
+			// Execute the CGI
+			execlp(cgi_type, cgi_type, NULL);
+			exit(EXIT_SUCCESS);
+		}
+		// Parent process
+		else{
+			// Close unused pipe
+			close(cgiSTDIN[0]);
+			close(cgiSTDOUT[1]);
+
+			char c;
+			int status;
+			// Send filename to CGI
+			write(cgiSTDIN[1], file_name,strlen(file_name));
+			
+			if (strcmp(cgi_type, INSERT_CGI) == 0){
+				// Send the query
+				write(cgiSTDIN[1],"\n",1);
+				write(cgiSTDIN[1],header.Query,strlen(header.Query));
+			}
+
+			// receive the message from the  CGI program
+			while (read(cgiSTDOUT[0], &c, 1) > 0){
+				// output the message to terminal
+				write(STDOUT_FILENO, &c, 1);
+				// Send to socket
+				write(new_sockFD, &c, 1);
+			}
+			// output the message to terminal, and send to socket
+			send(STDOUT_FILENO, "\n", 1, 0);
+			send(new_sockFD,"\n",1,0);
+
+            // connection finish
+            close(cgiSTDOUT[0]);
+            close(cgiSTDIN[1]);
+            waitpid(pid, &status, 0);
+		}
+	}
 
 }
 
@@ -27,28 +90,24 @@ void handle_connect(int new_sockFD, struct sockaddr_in *client_addr){
 	DEBUG("%s \n",request);
 	
 	// Parsing the request header
-	Header* header = request_header(request);
-	printf("Header Method: %s, Url: %s, Protocol: %s\n",header->Method,header->Url,header->Protocol);
-	printf("Header CL: %s\n",header->Content_Length);
-	printf("Header CT: %s\n",header->Content_Type);
-	printf("Header QUERY: %s\n",header->Query);
-
-	// Read the first line of request
-	// recv_line(request);
-
-	printf("Get request from %s:%d \"%s %s %s\"\n", inet_ntoa(client_addr->sin_addr), ntohs(client_addr->sin_port), header->Method,header->Url,header->Protocol);
+	Header header = request_header(request);
+	printf("Header Method: %s, Url: %s, Protocol: %s\n",header.Method,header.Url,header.Protocol);
+	printf("Header CL: %s\n",header.Content_Length);
+	printf("Header CT: %s\n",header.Content_Type);
+	printf("Header QUERY: %s\n",header.Query);
+	printf("Get request from %s:%d \"%s %s %s\"\n", inet_ntoa(client_addr->sin_addr), ntohs(client_addr->sin_port), header.Method,header.Url,header.Protocol);
 
 	// Check if HTTP request
-	if((strcmp(header->Protocol,"HTTP/1.1")) != 0){
+	if((strcmp(header.Protocol,"HTTP/1.1")) != 0){
 		perror("Not Http/1.1: ");
 		exit(EXIT_FAILURE);
 	}
 	else{
 		// Get: method = 1, POST, method = 2
 		int method = -1;
-		if(strcmp(header->Method,"GET") == 0)
+		if(strcmp(header.Method,"GET") == 0)
 			method = 1;
-		else if(strcmp(header->Method, "POST") == 0)
+		else if(strcmp(header.Method, "POST") == 0)
 			method = 2;
 
 		// Only handle the GET request or POST request
@@ -57,13 +116,13 @@ void handle_connect(int new_sockFD, struct sockaddr_in *client_addr){
 		}
 		else{
 			// When url end with '/', set it as "/DEFAULT_PAGE"
-			if(header->Url[strlen(header->Url)-1] == '/'){
-				strcat(header->Url, DEFAULT_PAGE);
+			if(header.Url[strlen(header.Url)-1] == '/'){
+				strcat(header.Url, DEFAULT_PAGE);
 			}
 
 			// The Url resource
 			strcpy(resource,ROOT);
-			strcat(resource,header->Url);	// e.g. "ROOT/xxx/DEFAULT_PAGE"
+			strcat(resource,header.Url);	// e.g. "ROOT/xxx/DEFAULT_PAGE"
 			
 			DEBUG("Resource: %s\n",resource);
 			
@@ -80,12 +139,9 @@ void handle_connect(int new_sockFD, struct sockaddr_in *client_addr){
 				memset(resource, 0, BUFF_SIZE);
 				strcpy(resource,ROOT);
 				strcat(resource,"/404.html");
-
-				fd = open(resource,O_RDONLY);
 				
 				// Send the 404.html
-				CGI(new_sockFD,fd);
-
+				CGI(new_sockFD, VIEW_CGI, resource, header);
 			}
 			else{
 				// Send 200 Header
@@ -93,11 +149,15 @@ void handle_connect(int new_sockFD, struct sockaddr_in *client_addr){
 
 				// Handle GET request
 				if(method == 1)
-					CGI(new_sockFD,fd);
+					CGI(new_sockFD, VIEW_CGI, resource, header);
 				// Handle POST request
-				else if(method == 2)
-					CGI(new_sockFD,fd);
+				else if(method == 2){
+					CGI(new_sockFD, INSERT_CGI, resource, header);
+				}
+
+					
 			}
+			close(fd);
 		}
 	}
 }
@@ -178,6 +238,5 @@ int main(int argc,char const *argv[]){
 			}
 		}
 	}
-
 	return 0;
 }
