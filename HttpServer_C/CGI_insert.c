@@ -35,15 +35,16 @@ int main(void){
         // Get the file size using fd
         off_t fsize;
 
-        // write the query at the end of file
-        lseek(fd,0,SEEK_END); 
-        write(fd, "\n<h2>",5);
-        write(fd, query, strlen(query));
-        write(fd,"</h2>",5);
+        // // write the query at the end of file
+        // lseek(fd,0,SEEK_END); 
+        // write(fd, "\n<h2>",5);
+        // write(fd, query, strlen(query));
+        // write(fd,"</h2>",5);
         
-        lseek(fd,0,SEEK_SET);   // Seek back to the head of th file
+        // lseek(fd,0,SEEK_SET);   // Seek back to the head of th file
         fsize = lseek(fd,0,SEEK_END); 
-        free(buf);
+
+        // free(buf);
         buf = (char*)malloc(sizeof(char)*(fsize+1));
         lseek(fd,0,SEEK_SET);   // Seek back to the head of th file
 
@@ -51,6 +52,9 @@ int main(void){
         read(fd, buf, fsize);
         // Output to STDOUT
         printf("%s\n",buf);
+
+        // Write the query
+        printf("\n<h2>%s</h2>",query);
     }
     close(fd);
 }
