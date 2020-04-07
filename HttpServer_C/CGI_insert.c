@@ -7,7 +7,9 @@
 #include <fcntl.h>
 
 /*
-Open and read the file, And send the Query after the context of the file
+Open and read the file,
+and write the Query at the end of file.
+Then send back to server.
 */
 
 int main(void){

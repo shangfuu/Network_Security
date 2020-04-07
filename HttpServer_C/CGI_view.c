@@ -5,6 +5,11 @@
 #include <sys/ioctl.h>
 #include <fcntl.h>
 
+/*
+   Open and read the file,
+   then send back to server.
+ */
+
 int main(void){
     int unread;
     char *buf;
