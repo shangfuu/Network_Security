@@ -29,7 +29,6 @@
 
 // Other
 #define BUFF_SIZE 4096
-#define DEBUG(type, msg) printf(type, msg);
 
 // PORT number set default as 8000
 int PORT = 8000;
@@ -151,25 +150,32 @@ void Parsing_CMD(int argc, char const *argv[]){
 // Send the corresponding http response header
 void response_header(int new_sockFD, char * status){
 
+	printf("\n------Response------\n");
+
 	// Version, Status code, Status message
 	write(new_sockFD, status, strlen(status));
+	printf(status);
 	
 	// Content-Type
 	write(new_sockFD,"Content-Type: text/html\r\n",25);
+	printf("Content-Type: text/html\r\n");
 	
 	// Date
 	time_t current = time(NULL);
 	char buffer[BUFF_SIZE];
 	sprintf(buffer,"Date: %s\r",ctime(&current));
 	write(new_sockFD,buffer,strlen(buffer));
-	memset(buffer,0,sizeof(buffer));	
+	printf("%s",buffer);
+
+	memset(buffer,0,sizeof(buffer));	// clear buffer
 
 	// Server name
-	char *server_name = "Server: HttpServerC\r\n";
-	sprintf(buffer, "Server: %s\r",HOST);
-	write(new_sockFD,server_name,strlen(server_name));
+	sprintf(buffer, "Server: %s\r", HOST);
+	write(new_sockFD, buffer,strlen(buffer));
+	printf("%s",buffer);
 	
 	write(new_sockFD,"\r\n",2);
+	printf("\n");
 }
 
 

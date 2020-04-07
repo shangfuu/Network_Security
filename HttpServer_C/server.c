@@ -87,15 +87,15 @@ void handle_connect(int new_sockFD, struct sockaddr_in *client_addr){
 	// Recieve the Client request
 	read(new_sockFD, request, BUFF_SIZE);
 	
-	DEBUG("%s \n",request);
+	printf("------Request Header:------\n%s \n",request);
 	
 	// Parsing the request header
 	Header header = request_header(request);
-	printf("Header Method: %s, Url: %s, Protocol: %s\n",header.Method,header.Url,header.Protocol);
-	printf("Header CL: %s\n",header.Content_Length);
-	printf("Header CT: %s\n",header.Content_Type);
-	printf("Header QUERY: %s\n",header.Query);
-	printf("Get request from %s:%d \"%s %s %s\"\n", inet_ntoa(client_addr->sin_addr), ntohs(client_addr->sin_port), header.Method,header.Url,header.Protocol);
+	// printf("Header Method: %s, Url: %s, Protocol: %s\n",header.Method,header.Url,header.Protocol);
+	// printf("Header CL: %s\n",header.Content_Length);
+	// printf("Header CT: %s\n",header.Content_Type);
+	// printf("Header QUERY: %s\n",header.Query);
+	printf("--DEBUG--\nGet request from %s:%d \"%s %s %s\"\n------\n", inet_ntoa(client_addr->sin_addr), ntohs(client_addr->sin_port), header.Method,header.Url,header.Protocol);
 
 	// Check if HTTP request
 	if((strcmp(header.Protocol,"HTTP/1.1")) != 0){
@@ -123,8 +123,6 @@ void handle_connect(int new_sockFD, struct sockaddr_in *client_addr){
 			// The Url resource
 			strcpy(resource,ROOT);
 			strcat(resource,header.Url);	// e.g. "ROOT/xxx/DEFAULT_PAGE"
-			
-			DEBUG("Resource: %s\n",resource);
 			
 			// Open the resource file
 			int fd = open(resource,O_RDONLY);
@@ -222,9 +220,7 @@ int main(int argc,char const *argv[]){
 					// Only handle the connection
 					close(sockFD);
 					
-					printf("\n<---\n");
 					handle_connect(new_sockFD, &client_addr);
-					printf("\n----->\n\n");
 
 					shutdown(new_sockFD,SHUT_RDWR);	// Close the socket
 					exit(EXIT_SUCCESS);
