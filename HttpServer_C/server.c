@@ -154,8 +154,6 @@ void handle_connect(int new_sockFD, struct sockaddr_in *client_addr){
 				else if(method == 2){
 					CGI(new_sockFD, INSERT_CGI, resource, header);
 				}
-
-					
 			}
 			close(fd);
 		}

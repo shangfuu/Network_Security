@@ -52,4 +52,5 @@ int main(void){
         // Output to STDOUT
         printf("%s\n",buf);
     }
+    close(fd);
 }
