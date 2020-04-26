@@ -1,18 +1,13 @@
-CC = gcc
-CFLAGS = -g -w -Wall
-OPENSSL_FLAGS = -lssl -lcrypto
+SERVER = ./server
+CLIENT = ./client
 
-all: server client
-
-server: server.c
-	$(CC) -o server.o server.c  $(CFLAGS) $(OPENSSL_FLAGS)
-
-client: client.c
-	$(CC) -o client.o client.c  $(CFLAGS) $(OPENSSL_FLAGS)
+all:
+	+$(MAKE) -C $(SERVER)
+	+$(MAKE) -C $(CLIENT)
 
 .PHONY: clean
-
 clean:
-	@echo "Cleaning Object file..."
-	-rm *.o
-
+	@echo "Cleaning Object files under ./server"
+	-rm $(SERVER)/*.o
+	@echo "Cleaning Object files under ./client"
+	-rm $(CLIENT)/*.o
