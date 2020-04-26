@@ -10,8 +10,6 @@ all:
 .PHONY: clean
 clean:
 	@echo "Cleaning object and pem files in all subdir..."
-	-rm $(SERVER)/*.o
-	-rm $(SERVER)/*.pem
-	-rm $(CLIENT)/*.o
-	-rm $(CLIENT)/*.pem
-	-rm $(CA)/*.pem
+	+$(MAKE) -C $(SERVER) clean
+	+$(MAKE) -C $(CLIENT) clean
+	+$(MAKE) -C $(CA) clean

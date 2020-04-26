@@ -1,8 +1,179 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 
-int main(){
-	printf("This is client\n");
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <signal.h>
+
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+
+#define LIMIT_CONNECT 20
+#define BUFF_SIZE 4096
+int PORT = 8000;
+char* HOST_NAME = "127.0.0.1";
+
+void init_openSSL(){
+	SSL_library_init();
+	SSL_load_error_strings();
+	OpenSSL_add_all_algorithms();
+}
+
+void clear_openSSL(){
+	ERR_free_strings();
+	EVP_cleanup();
+}
+
+void error(char *msg){
+	perror(msg);
+	ERR_print_errors_fp(stderr);
+	exit(EXIT_FAILURE);
+}
+
+void ShowCerts(SSL * ssl)
+{
+	X509 *cert;
+	char *line;
+
+	if ((cert = SSL_get_peer_certificate(ssl)) != NULL) {
+		printf("Digital certificate information:\n");
+    	line = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
+    	printf("Certificate: %s\n", line);
+    	free(line);
+    	line = X509_NAME_oneline(X509_get_issuer_name(cert), 0, 0);
+    	printf("Issuer: %s\n", line);
+    	free(line);
+		X509_free(cert);
+	}
+  	else {
+		printf("No certificate information！\n");
+	}
+
+}
+
+void parsing_cmd(int argc, char const *argv[]){
+	if (argc != 3){
+		perror("Input format: ./server.o {hostname} {PORT}\n");
+		exit(EXIT_FAILURE);
+	}
+	else {
+		PORT = atoi(argv[2]);
+		HOST_NAME = argv[1];
+	}
+	printf("Open server at port: %d\n", PORT);
+}
+
+SSL_CTX* create_SSL_CTX(SSL_METHOD *method){
+	SSL_CTX * ssl_ctx;
+	if((ssl_ctx = SSL_CTX_new(method)) == NULL){
+		error("Error SSL CTX create: ");
+	}
+	return ssl_ctx;
+}
+
+void configure_SSL_CTX(SSL_CTX * ctx){
+
+	SSL_CTX_set_ecdh_auto(ctx, 1);
+
+	// Set the Key and certificate
+	if(SSL_CTX_use_certificate_file(ctx, "cert.pem", SSL_FILETYPE_PEM) != 1) {
+		error("Use Certificate File Error: ");
+	}
+	if(SSL_CTX_use_PrivateKey_file(ctx,"pkey.pem",SSL_FILETYPE_PEM) != 1) {
+		error("Use Private Key File Error: ");
+	}
+	
+	// Verify the user private key
+	if (!SSL_CTX_check_private_key(ctx)){
+    	error("Invalid private key: ");
+	}
+
+}
+
+int create_socket(){
+
+	int sockFD;
+	struct sockaddr_in server_addr;
+
+	// Create new socket
+	if((sockFD = socket(AF_INET,SOCK_STREAM,0))==0){
+		perror("Socket Error:");
+		exit(EXIT_FAILURE);
+	}
+
+	// initialize server side address and port info
+	memset(&server_addr, '\0',sizeof(server_addr));
+	server_addr.sin_family = AF_INET;
+	server_addr.sin_port = htons(PORT);
+	
+	// Convert IPv4 and IPv6 addresses from text to binary form
+    if(inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr) <= 0)
+    {
+        perror("\nInvalid address/ Address not supported \n");
+        exit(EXIT_FAILURE);
+    }
+
+	if (connect(sockFD, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
+    {
+        perror("\nConnection Failed \n");
+        exit(EXIT_FAILURE);
+    }
+
+	return sockFD;
+}
+
+int main(int argc, char const *argv[]){
+
+	parsing_cmd(argc, argv);
+
+	int sockFD, new_sockFD;
+	SSL_CTX *ssl_ctx;
+	SSL *ssl;
+	
+	// Initialize OpenSSL
+	init_openSSL();
+
+	// Create new SSL_CTX to establish TLS/SSL enabled connections
+	SSL_METHOD *method = TLSv1_2_client_method();
+	ssl_ctx = create_SSL_CTX(method);
+
+	// Configure the Certificate and Private Key file
+//	configure_SSL_CTX(ssl_ctx);
+	
+	// Create socket
+	sockFD = create_socket();
+	
+	// Handle Connection
+
+	ssl = SSL_new(ssl_ctx);
+	SSL_set_fd(ssl, sockFD);
+
+	// Create SSL connect
+	if(SSL_connect(ssl) != 1){
+		ERR_print_errors_fp(stderr);
+	}
+	else {
+		printf("Connected with %s encryption\n", SSL_get_cipher(ssl));
+    	ShowCerts(ssl);
+	}
+
+	// Send message to server 
+	SSL_write(ssl, "Hello from client\n", 18);
+	char *buf = (char)malloc(BUFF_SIZE * sizeof(char));
+	
+	// Read message from server
+	SSL_read(ssl, buf, BUFF_SIZE);
+	printf("MSG from server:\n %s",buf);
+	free(buf);
+
+	// close connection
+	close(sockFD);
+	SSL_shutdown(ssl);
+	SSL_free(ssl);
+	SSL_CTX_free(ssl_ctx);
+	clear_openSSL();
+
 	return 0;
 }

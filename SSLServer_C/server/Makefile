@@ -4,6 +4,12 @@ OPENSSL_FLAGS = -lssl -lcrypto
 
 pkey = server_pKey.pem
 CERT = server_cert.pem
+CONFIG = CSR.cnf
+CSR = server_csr.csr
+
+CA_ROOT = ../CA
+CA_cert = /CA-cert.pem
+CA_key = /CA-pKey.pem
 
 all: server
 
@@ -13,8 +19,12 @@ server: server.c
 .PHONY: gen clean
 
 gen: 
-	$(SSL) genrsa -des3 -out $(pKey) 2048
-	$(SSL) req -x509 -new -nodes -key $(pKey) -subj "/C=TW/ST=Taiwan/L=Taipei City/O=MyOrg/OU=MyUnit/CN=my.domain" -days 365 -out $(CERT)
+	# Create RSA key pair for server with 2048 bits.
+	$(SSL) genrsa -out $(pKey) 2048
+	# Generate CSR for server using private key.
+	$(SSL) req -new -config $(CONFIG) -key $(pKey) -out $(CSR)
+	# Self-sign the CSR using CA certificate.
+	$(SSL) x509 -req -days 365 -in $(CSR) -CA $(CA_ROOT)$(CA_cert) -CAKey $(CA_ROOT)$(CA_key) -CAcreateserial -out $(CERT)
 
 clean:
 	@echo "Cleaning Object file..."
