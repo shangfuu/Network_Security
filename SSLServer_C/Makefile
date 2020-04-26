@@ -3,9 +3,9 @@ CLIENT = ./client
 CA = ./CA
 
 all:
+	+$(MAKE) -C $(CA)
 	+$(MAKE) -C $(SERVER)
 	+$(MAKE) -C $(CLIENT)
-	+$(MAKE) -C $(CA)
 
 .PHONY: clean
 clean:
