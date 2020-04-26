@@ -28,7 +28,8 @@ ssl:
 
 .PHONY: clean
 clean:
-	@echo "Cleaning Object file..."
+	@echo "Cleaning Object Pem CSR file..."
 	-rm *.o
 	-rm *.pem
+	-rm *.csr
 

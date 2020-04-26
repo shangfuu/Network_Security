@@ -10,5 +10,6 @@ ssl:
 	$(SSL) req -x509 -new -nodes -key $(pKey) -subj "/C=TW/ST=Taiwan/L=Taipei City/O=B10615045/OU=NTUST/CN=localhost" -days 365 -out $(CERT)
 
 clean:
-	@echo "Cleaning pem files..."
+	@echo "Cleaning pem srl files..."
 	-rm *.pem
+	-rm *.srl

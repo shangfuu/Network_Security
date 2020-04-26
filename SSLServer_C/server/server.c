@@ -12,6 +12,9 @@
 
 #define LIMIT_CONNECT 20
 #define BUFF_SIZE 4096
+#define CERT "server_cert.pem"
+#define pKEY "server_pKey.pem"
+
 int PORT = 8000;
 
 void init_openSSL(){
@@ -32,11 +35,11 @@ void error(char *msg){
 }
 
 void parsing_cmd(int argc, char const *argv[]){
-	if (argc != 2){
-		perror("Input format: ./server.o {PORT}\n");
+	if (argc > 2){
+		perror("Input format: ./server.o {PORT} or\n\t ./server.o");
 		exit(EXIT_FAILURE);
 	}
-	else {
+	else if(argc == 2) {
 		PORT = atoi(argv[1]);
 	}
 	printf("Open server at port: %d\n", PORT);
@@ -45,7 +48,7 @@ void parsing_cmd(int argc, char const *argv[]){
 SSL_CTX* create_SSL_CTX(SSL_METHOD *method){
 	SSL_CTX * ssl_ctx;
 	if((ssl_ctx = SSL_CTX_new(method)) == NULL){
-		error("Error SSL CTX create: ");
+		error("Error SSL CTX create");
 	}
 	return ssl_ctx;
 }
@@ -55,17 +58,16 @@ void configure_SSL_CTX(SSL_CTX * ctx){
 	SSL_CTX_set_ecdh_auto(ctx, 1);
 
 	// Set the Key and certificate
-	if(SSL_CTX_use_certificate_file(ctx, "cert.pem", SSL_FILETYPE_PEM) != 1) {
-		error("Use Certificate File Error: ");
+	if(SSL_CTX_use_certificate_file(ctx, CERT, SSL_FILETYPE_PEM) != 1) {
+		error("Use Certificate File Error");
 	}
-	if(SSL_CTX_use_PrivateKey_file(ctx,"pkey.pem",SSL_FILETYPE_PEM) != 1) {
-		error("Use Private Key File Error: ");
+	if(SSL_CTX_use_PrivateKey_file(ctx, pKEY, SSL_FILETYPE_PEM) != 1) {
+		error("Use Private Key File Error");
 	}
-	
+
 	// Verify the user private key
 	if (!SSL_CTX_check_private_key(ctx)){
-    	ERR_print_errors_fp(stderr);
-    	exit(EXIT_FAILURE);
+		error("Verify private key Error");
 	}
 
 }
@@ -77,7 +79,7 @@ int create_socket(){
 
 	// Create new socket
 	if((sockFD = socket(AF_INET,SOCK_STREAM,0))==0){
-		perror("Socket Error:");
+		perror("Socket Error");
 		exit(EXIT_FAILURE);
 	}
 
@@ -96,17 +98,19 @@ int create_socket(){
 	memset(server_addr.sin_zero, '\0',sizeof(server_addr.sin_zero));
 	
 	if(bind(sockFD,(struct sockaddr *)&server_addr,sizeof(server_addr)) < 0){
-		perror("Bind Error: ");
+		perror("Bind Error");
 		exit(EXIT_FAILURE);
 	}
 	// Ready to accept new connection
 	if(listen(sockFD, LIMIT_CONNECT) < 0){
-		perror("Listen Error: ");
+		perror("Listen Error");
 		exit(EXIT_FAILURE);
 	}
 	
 	// Ignore SIGCHLD to avoid zombie threads
     signal(SIGCHLD,SIG_IGN);
+
+	return sockFD;
 }
 
 int main(int argc, char const *argv[]){
@@ -127,21 +131,22 @@ int main(int argc, char const *argv[]){
 
 	// Configure the Certificate and Private Key file
 	configure_SSL_CTX(ssl_ctx);
-	
+
 	// Create socket
 	sockFD = create_socket();
-	
+
 	// Handle Connection
 	while(1){
 
 		struct sockaddr_in client_addr;
 		int client_len = sizeof(client_addr);
 		SSL *ssl;
-		char * buf = (char)malloc(BUFF_SIZE * sizeof(char));
+		char *buf = (char*)malloc(BUFF_SIZE * sizeof(char));
+		memset(buf,'\0',BUFF_SIZE);
 
 		// Takes first connection request and create new socket
 		if((new_sockFD = accept(sockFD,(struct sockaddr *)&client_addr,(socklen_t*)&client_len)) < 0){
-			perror("Accept Error: ");
+			perror("Accept Error");
 			exit(EXIT_FAILURE);
 		}
 
@@ -156,8 +161,11 @@ int main(int argc, char const *argv[]){
 		else {
 			printf("Connect!\n");
 			SSL_read(ssl, buf, BUFF_SIZE);
-			printf("%s\n",buf);
-			SSL_write(ssl, "Hello from server!\n", 19);
+			printf("MSG from client:\n %s",buf);
+
+			free(buf);
+			char *msg = "Hello from server!\n";
+			SSL_write(ssl, msg, strlen(msg));
 		}
 
 		// Close SSL and newsocket

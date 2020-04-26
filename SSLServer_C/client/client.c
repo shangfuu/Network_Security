@@ -12,6 +12,9 @@
 
 #define LIMIT_CONNECT 20
 #define BUFF_SIZE 4096
+#define CERT "client_cert.pem"
+#define pKEY "client_pKey.pem"
+
 int PORT = 8000;
 char* HOST_NAME = "127.0.0.1";
 
@@ -54,11 +57,14 @@ void ShowCerts(SSL * ssl)
 }
 
 void parsing_cmd(int argc, char const *argv[]){
-	if (argc != 3){
-		perror("Input format: ./server.o {hostname} {PORT}\n");
+	if (argc > 3){
+		perror("Input format: ./server.o {hostname} {PORT} or \n\t ./sever.o {PORT} or \n\t ./server.o");
 		exit(EXIT_FAILURE);
 	}
-	else {
+	else if (argc == 2){
+		PORT = atoi(argv[1]);
+	}
+	else if (argc == 3){
 		PORT = atoi(argv[2]);
 		HOST_NAME = argv[1];
 	}
@@ -73,18 +79,18 @@ SSL_CTX* create_SSL_CTX(SSL_METHOD *method){
 	return ssl_ctx;
 }
 
-void configure_SSL_CTX(SSL_CTX * ctx){
+void configure_SSL_CTX(SSL_CTX *ctx){
 
 	SSL_CTX_set_ecdh_auto(ctx, 1);
 
 	// Set the Key and certificate
-	if(SSL_CTX_use_certificate_file(ctx, "cert.pem", SSL_FILETYPE_PEM) != 1) {
+	if(SSL_CTX_use_certificate_file(ctx, CERT, SSL_FILETYPE_PEM) != 1) {
 		error("Use Certificate File Error: ");
 	}
-	if(SSL_CTX_use_PrivateKey_file(ctx,"pkey.pem",SSL_FILETYPE_PEM) != 1) {
+	if(SSL_CTX_use_PrivateKey_file(ctx, pKEY, SSL_FILETYPE_PEM) != 1) {
 		error("Use Private Key File Error: ");
 	}
-	
+
 	// Verify the user private key
 	if (!SSL_CTX_check_private_key(ctx)){
     	error("Invalid private key: ");
@@ -99,7 +105,7 @@ int create_socket(){
 
 	// Create new socket
 	if((sockFD = socket(AF_INET,SOCK_STREAM,0))==0){
-		perror("Socket Error:");
+		perror("Socket Error");
 		exit(EXIT_FAILURE);
 	}
 
@@ -111,13 +117,13 @@ int create_socket(){
 	// Convert IPv4 and IPv6 addresses from text to binary form
     if(inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr) <= 0)
     {
-        perror("\nInvalid address/ Address not supported \n");
+        perror("Invalid address/ Address not supported");
         exit(EXIT_FAILURE);
     }
 
 	if (connect(sockFD, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
     {
-        perror("\nConnection Failed \n");
+        perror("Connection Failed");
         exit(EXIT_FAILURE);
     }
 
@@ -159,9 +165,12 @@ int main(int argc, char const *argv[]){
     	ShowCerts(ssl);
 	}
 
-	// Send message to server 
-	SSL_write(ssl, "Hello from client\n", 18);
-	char *buf = (char)malloc(BUFF_SIZE * sizeof(char));
+	// Send message to server
+	char *msg = "Hello from client!\n";
+	SSL_write(ssl, msg, strlen(msg));
+
+	char *buf = (char*)malloc(BUFF_SIZE * sizeof(char));
+	memset(buf,'\0',BUFF_SIZE);
 	
 	// Read message from server
 	SSL_read(ssl, buf, BUFF_SIZE);
