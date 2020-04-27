@@ -12,8 +12,11 @@
 
 #define LIMIT_CONNECT 20
 #define BUFF_SIZE 4096
-#define CERT "client_cert.pem"
-#define pKEY "client_pKey.pem"
+
+#define CA_CERT "../CA/CA-cert.pem"
+
+#define CERT "client-cert.pem"
+#define pKEY "client-pKey.pem"
 
 int PORT = 8000;
 char* HOST_NAME = "127.0.0.1";
@@ -40,6 +43,7 @@ void ShowCerts(SSL * ssl)
 	X509 *cert;
 	char *line;
 
+	printf ("SSL connection using %s\n", SSL_get_cipher (ssl));
 	if ((cert = SSL_get_peer_certificate(ssl)) != NULL) {
 		printf("Digital certificate information:\n");
     	line = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
@@ -58,7 +62,7 @@ void ShowCerts(SSL * ssl)
 
 void parsing_cmd(int argc, char const *argv[]){
 	if (argc > 3){
-		perror("Input format: ./server.o {hostname} {PORT} or \n\t ./sever.o {PORT} or \n\t ./server.o");
+		perror(" Input format:\n1. ./server.o {hostname} {PORT}\n2. ./sever.o {PORT}\n3. ./server.o");
 		exit(EXIT_FAILURE);
 	}
 	else if (argc == 2){
@@ -68,6 +72,7 @@ void parsing_cmd(int argc, char const *argv[]){
 		PORT = atoi(argv[2]);
 		HOST_NAME = argv[1];
 	}
+	printf("Input format:\n1. ./server.o {hostname} {PORT}\n2. ./sever.o {PORT}\n3. ./server.o\n\n");
 	printf("Open server at port: %d\n", PORT);
 }
 
@@ -81,7 +86,19 @@ SSL_CTX* create_SSL_CTX(SSL_METHOD *method){
 
 void configure_SSL_CTX(SSL_CTX *ctx){
 
-	SSL_CTX_set_ecdh_auto(ctx, 1);
+	// Verify client
+	// Set to require peer (client) certificate verification
+	SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
+	// Various bugs workaround should be rather harmless
+	SSL_CTX_set_options(ctx, SSL_OP_ALL);
+
+	/* Load the RSA CA certificate into the SSL_CTX structure */
+    /* This will allow this client to verify the server's     */
+    /* certificate.                                           */
+	
+	if (SSL_CTX_load_verify_locations(ctx, CA_CERT, NULL) != 1){
+		error("Load verify loactions Error");
+	}
 
 	// Set the Key and certificate
 	if(SSL_CTX_use_certificate_file(ctx, CERT, SSL_FILETYPE_PEM) != 1) {
@@ -95,7 +112,6 @@ void configure_SSL_CTX(SSL_CTX *ctx){
 	if (!SSL_CTX_check_private_key(ctx)){
     	error("Invalid private key: ");
 	}
-
 }
 
 int create_socket(){
@@ -146,7 +162,7 @@ int main(int argc, char const *argv[]){
 	ssl_ctx = create_SSL_CTX(method);
 
 	// Configure the Certificate and Private Key file
-//	configure_SSL_CTX(ssl_ctx);
+	configure_SSL_CTX(ssl_ctx);
 	
 	// Create socket
 	sockFD = create_socket();
@@ -165,17 +181,18 @@ int main(int argc, char const *argv[]){
     	ShowCerts(ssl);
 	}
 
-	// Send message to server
-	char *msg = "Hello from client!\n";
-	SSL_write(ssl, msg, strlen(msg));
-
+	// Read message from server
 	char *buf = (char*)malloc(BUFF_SIZE * sizeof(char));
 	memset(buf,'\0',BUFF_SIZE);
-	
-	// Read message from server
 	SSL_read(ssl, buf, BUFF_SIZE);
-	printf("MSG from server:\n %s",buf);
+	printf("MSG from server:\n%s",buf);
 	free(buf);
+
+	// Send message to server
+	char msg[BUFF_SIZE];
+	printf("Input the message (will sent to server):\n");
+	fgets(msg, BUFF_SIZE, stdin);
+	SSL_write(ssl, msg, strlen(msg));
 
 	// close connection
 	close(sockFD);

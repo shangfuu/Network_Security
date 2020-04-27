@@ -12,8 +12,11 @@
 
 #define LIMIT_CONNECT 20
 #define BUFF_SIZE 4096
-#define CERT "server_cert.pem"
-#define pKEY "server_pKey.pem"
+
+#define CA_CERT "../CA/CA-cert.pem"
+
+#define CERT "server-cert.pem"
+#define pKEY "server-pKey.pem"
 
 int PORT = 8000;
 
@@ -36,12 +39,13 @@ void error(char *msg){
 
 void parsing_cmd(int argc, char const *argv[]){
 	if (argc > 2){
-		perror("Input format: ./server.o {PORT} or\n\t ./server.o");
+		perror("Input format:\n1. ./server.o {PORT} or\n2. ./server.o");
 		exit(EXIT_FAILURE);
 	}
 	else if(argc == 2) {
 		PORT = atoi(argv[1]);
 	}
+	printf("Input format:\n1. ./server.o {PORT} or\n2. ./server.o\n\n");
 	printf("Open server at port: %d\n", PORT);
 }
 
@@ -55,9 +59,18 @@ SSL_CTX* create_SSL_CTX(SSL_METHOD *method){
 
 void configure_SSL_CTX(SSL_CTX * ctx){
 
-	SSL_CTX_set_ecdh_auto(ctx, 1);
+	// Verify client
+	// Set to require peer (client) certificate verification
+	SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
+	// Various bugs workaround should be rather harmless
+	SSL_CTX_set_options(ctx, SSL_OP_ALL);
 
-	// Set the Key and certificate
+	// Set the certificate of CA
+	if (SSL_CTX_load_verify_locations(ctx, CA_CERT, NULL) != 1){
+		error("Load verify loactions Error");
+	}
+
+	// Set the Key and certificate of server
 	if(SSL_CTX_use_certificate_file(ctx, CERT, SSL_FILETYPE_PEM) != 1) {
 		error("Use Certificate File Error");
 	}
@@ -65,7 +78,7 @@ void configure_SSL_CTX(SSL_CTX * ctx){
 		error("Use Private Key File Error");
 	}
 
-	// Verify the user private key
+	// Verify the private key
 	if (!SSL_CTX_check_private_key(ctx)){
 		error("Verify private key Error");
 	}
@@ -128,7 +141,6 @@ int main(int argc, char const *argv[]){
 	SSL_METHOD *method = TLSv1_2_server_method();
 	ssl_ctx = create_SSL_CTX(method);
 	
-
 	// Configure the Certificate and Private Key file
 	configure_SSL_CTX(ssl_ctx);
 
@@ -159,13 +171,19 @@ int main(int argc, char const *argv[]){
 			ERR_print_errors_fp(stderr);
 		}
 		else {
-			printf("Connect!\n");
-			SSL_read(ssl, buf, BUFF_SIZE);
-			printf("MSG from client:\n %s",buf);
-
-			free(buf);
+			// Print out the connected client
+			char client_ip_str[INET_ADDRSTRLEN];
+			inet_ntop( AF_INET, &( client_addr.sin_addr.s_addr ), client_ip_str, INET_ADDRSTRLEN );
+			printf ("Connection from %s, port %d\n", client_ip_str, client_addr.sin_port);
+			
+			// Send msg to client
 			char *msg = "Hello from server!\n";
 			SSL_write(ssl, msg, strlen(msg));
+
+			// Recieve msg from client
+			SSL_read(ssl, buf, BUFF_SIZE);
+			printf("MSG from client:\n%s",buf);
+			free(buf);
 		}
 
 		// Close SSL and newsocket
