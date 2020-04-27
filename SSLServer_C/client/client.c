@@ -13,13 +13,16 @@
 #define LIMIT_CONNECT 20
 #define BUFF_SIZE 4096
 
-#define CA_CERT "../CA/CA-cert.pem"
+#define CA_CERT "../CA/Real-CA/CA-cert.pem"
+#define FAKE_CA_CERT "../CA/Fake-CA/Fake-CA-cert.pem"
 
-#define CERT "client-cert.pem"
-#define pKEY "client-pKey.pem"
+#define CERT "./self-signed-cert/client-cert.pem"
+#define pKEY "./self-signed-cert/client-pKey.pem"
 
 int PORT = 8000;
 char* HOST_NAME = "127.0.0.1";
+
+enum {real, fake} CA = real;
 
 void init_openSSL(){
 	SSL_library_init();
@@ -42,9 +45,11 @@ void ShowCerts(SSL * ssl)
 {
 	X509 *cert;
 	char *line;
-
-	printf ("SSL connection using %s\n", SSL_get_cipher (ssl));
+	
 	if ((cert = SSL_get_peer_certificate(ssl)) != NULL) {
+		printf("\n------Show Certificates-------\n");
+		printf("Connected with %s encryption\n", SSL_get_cipher(ssl));
+
 		printf("Digital certificate information:\n");
     	line = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
     	printf("Certificate: %s\n", line);
@@ -53,27 +58,47 @@ void ShowCerts(SSL * ssl)
     	printf("Issuer: %s\n", line);
     	free(line);
 		X509_free(cert);
+		printf("-----------------------------\n\n");
 	}
   	else {
-		printf("No certificate information！\n");
+		printf("----No certificate information！-----\n");
 	}
+}
 
+void cmd_hint(){
+	printf(" Input format:\n1. ./server.o {-r/-f} {hostname} {PORT}\n2. ./sever.o {-r/-f} {PORT}\
+			\n3. ./server.o {-r/-f}\n4. ./server.o\n");
+	printf("Default {hostname}: 127.0.0.1, {PORT}: 8000, {-r/-f}: Real\n");
 }
 
 void parsing_cmd(int argc, char const *argv[]){
-	if (argc > 3){
-		perror(" Input format:\n1. ./server.o {hostname} {PORT}\n2. ./sever.o {PORT}\n3. ./server.o");
+	if (argc > 4){
+		cmd_hint();
 		exit(EXIT_FAILURE);
-	}
-	else if (argc == 2){
-		PORT = atoi(argv[1]);
 	}
 	else if (argc == 3){
 		PORT = atoi(argv[2]);
-		HOST_NAME = argv[1];
 	}
-	printf("Input format:\n1. ./server.o {hostname} {PORT}\n2. ./sever.o {PORT}\n3. ./server.o\n\n");
-	printf("Open server at port: %d\n", PORT);
+	else if (argc == 4){
+		PORT = atoi(argv[3]);
+		HOST_NAME = argv[2];
+	}
+
+	if(argc != 1){
+		if (strcmp(argv[1], "-f") == 0){
+			CA = fake;
+		}
+		else if (strcmp(argv[1], "-r") == 0){
+			CA = real;
+		}
+		else{
+			cmd_hint();
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	cmd_hint();
+	printf("Connect to server at %s port: %d\n\n", HOST_NAME, PORT);
 }
 
 SSL_CTX* create_SSL_CTX(SSL_METHOD *method){
@@ -95,11 +120,16 @@ void configure_SSL_CTX(SSL_CTX *ctx){
 	/* Load the RSA CA certificate into the SSL_CTX structure */
     /* This will allow this client to verify the server's     */
     /* certificate.                                           */
-	
-	if (SSL_CTX_load_verify_locations(ctx, CA_CERT, NULL) != 1){
-		error("Load verify loactions Error");
+	if (CA == real){
+		if (SSL_CTX_load_verify_locations(ctx, CA_CERT, NULL) != 1){
+			error("Load verify loactions Error");
+		}
+	} else{
+		if (SSL_CTX_load_verify_locations(ctx, FAKE_CA_CERT, NULL) != 1){
+			error("Load verify loactions Error");
+		}
 	}
-
+	
 	// Set the Key and certificate
 	if(SSL_CTX_use_certificate_file(ctx, CERT, SSL_FILETYPE_PEM) != 1) {
 		error("Use Certificate File Error: ");
@@ -131,7 +161,7 @@ int create_socket(){
 	server_addr.sin_port = htons(PORT);
 	
 	// Convert IPv4 and IPv6 addresses from text to binary form
-    if(inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr) <= 0)
+    if(inet_pton(AF_INET, HOST_NAME, &server_addr.sin_addr) <= 0)
     {
         perror("Invalid address/ Address not supported");
         exit(EXIT_FAILURE);
@@ -168,7 +198,6 @@ int main(int argc, char const *argv[]){
 	sockFD = create_socket();
 	
 	// Handle Connection
-
 	ssl = SSL_new(ssl_ctx);
 	SSL_set_fd(ssl, sockFD);
 
@@ -177,7 +206,6 @@ int main(int argc, char const *argv[]){
 		ERR_print_errors_fp(stderr);
 	}
 	else {
-		printf("Connected with %s encryption\n", SSL_get_cipher(ssl));
     	ShowCerts(ssl);
 	}
 
@@ -190,9 +218,10 @@ int main(int argc, char const *argv[]){
 
 	// Send message to server
 	char msg[BUFF_SIZE];
-	printf("Input the message (will sent to server):\n");
-	fgets(msg, BUFF_SIZE, stdin);
-	SSL_write(ssl, msg, strlen(msg));
+	printf("\nInput the message (will sent to server until EOF):\n");
+	while(fgets(msg, BUFF_SIZE, stdin) != NULL){
+		SSL_write(ssl, msg, strlen(msg));
+	}
 
 	// close connection
 	close(sockFD);

@@ -13,10 +13,10 @@
 #define LIMIT_CONNECT 20
 #define BUFF_SIZE 4096
 
-#define CA_CERT "../CA/CA-cert.pem"
+#define CA_CERT "../CA/Real-CA/CA-cert.pem"
 
-#define CERT "server-cert.pem"
-#define pKEY "server-pKey.pem"
+#define CERT "./self-signed-cert/server-cert.pem"
+#define pKEY "./self-signed-cert/server-pKey.pem"
 
 int PORT = 8000;
 
@@ -35,6 +35,30 @@ void error(char *msg){
 	perror(msg);
 	ERR_print_errors_fp(stderr);
 	exit(EXIT_FAILURE);
+}
+
+void ShowCerts(SSL * ssl)
+{
+	X509 *cert;
+	char *line;
+	
+	if ((cert = SSL_get_peer_certificate(ssl)) != NULL) {
+		printf("------Show Certificates-------\n");
+		printf("Connected with %s encryption\n", SSL_get_cipher(ssl));
+
+		printf("Digital certificate information:\n");
+    	line = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
+    	printf("Certificate: %s\n", line);
+    	free(line);
+    	line = X509_NAME_oneline(X509_get_issuer_name(cert), 0, 0);
+    	printf("Issuer: %s\n", line);
+    	free(line);
+		X509_free(cert);
+		printf("-----------------------------\n\n");
+	}
+  	else {
+		printf("----No certificate information！-----\n");
+	}
 }
 
 void parsing_cmd(int argc, char const *argv[]){
@@ -174,16 +198,21 @@ int main(int argc, char const *argv[]){
 			// Print out the connected client
 			char client_ip_str[INET_ADDRSTRLEN];
 			inet_ntop( AF_INET, &( client_addr.sin_addr.s_addr ), client_ip_str, INET_ADDRSTRLEN );
-			printf ("Connection from %s, port %d\n", client_ip_str, client_addr.sin_port);
+			printf ("\nConnection from %s, port %d\n", client_ip_str, client_addr.sin_port);
+			ShowCerts(ssl);
 			
 			// Send msg to client
 			char *msg = "Hello from server!\n";
 			SSL_write(ssl, msg, strlen(msg));
 
 			// Recieve msg from client
-			SSL_read(ssl, buf, BUFF_SIZE);
-			printf("MSG from client:\n%s",buf);
+			printf("MSG from client:\n");
+			while(SSL_read(ssl, buf, BUFF_SIZE)) {
+				printf("%s",buf);
+				memset(buf,'\0',BUFF_SIZE);
+			}
 			free(buf);
+			printf("----Client Disconnected----\n");
 		}
 
 		// Close SSL and newsocket
