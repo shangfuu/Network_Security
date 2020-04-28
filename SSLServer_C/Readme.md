@@ -57,6 +57,8 @@ OPENSSL_assert(EVP_CIPHER_CTX_iv_length(&ctx) == 16);
 ```
 
 ## Reference
-https://developer.ibm.com/technologies/security/tutorials/l-openssl/
-https://knowledge.broadcom.com/external/article/166370/how-to-create-a-selfsigned-ssl-certifica.html
+https://www.openssl.org/docs/man1.0.2/man3/
+https://www.openssl.org/docs/man1.0.2/man3/
+https://wiki.openssl.org/index.php/Simple_TLS_Server
+https://www.simba.com/products/SEN/doc/Client-Server_user_guide/content/clientserver/configuringssl/signingca.htm
 
