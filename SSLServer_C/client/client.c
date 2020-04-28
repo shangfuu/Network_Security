@@ -12,12 +12,13 @@
 
 #define LIMIT_CONNECT 20
 #define BUFF_SIZE 4096
+#define ROOT "SSLServer_C"
 
-#define CA_CERT "../CA/Real-CA/CA-cert.pem"
-#define FAKE_CA_CERT "../CA/Fake-CA/Fake-CA-cert.pem"
+#define CA_CERT "./CA/Real-CA/CA-cert.pem"
+#define FAKE_CA_CERT "./CA/Fake-CA/Fake-CA-cert.pem"
 
-#define CERT "./self-signed-cert/client-cert.pem"
-#define pKEY "./self-signed-cert/client-pKey.pem"
+#define CERT "./client/self-signed-cert/client-cert.pem"
+#define pKEY "./client/self-signed-cert/client-pKey.pem"
 
 int PORT = 8000;
 char* HOST_NAME = "127.0.0.1";
@@ -63,6 +64,29 @@ void ShowCerts(SSL * ssl)
   	else {
 		printf("----No certificate information！-----\n");
 	}
+}
+
+void change_root(){
+	char * tok;
+	char *delim = "/";
+	char buf[BUFF_SIZE], dir[BUFF_SIZE];
+
+	// Get the current dir name
+	tok = strtok(getcwd(buf,BUFF_SIZE), delim);
+	while(tok != NULL){
+		printf("%s\n", tok);
+		strcpy(dir, tok);
+		tok = strtok(NULL, delim);
+	}
+	printf("%s\n",dir);
+
+	// Back to working root dir if not in ROOT
+	if (strcmp(ROOT, dir) != 0) {
+		chdir("..");
+		memset(buf,'\0',BUFF_SIZE);
+		printf("%s\n",getcwd(buf,BUFF_SIZE));
+	}
+
 }
 
 void cmd_hint(){

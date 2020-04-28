@@ -12,11 +12,12 @@
 
 #define LIMIT_CONNECT 20
 #define BUFF_SIZE 4096
+#define ROOT "SSLServer_C"
 
-#define CA_CERT "../CA/Real-CA/CA-cert.pem"
+#define CA_CERT "./CA/Real-CA/CA-cert.pem"
 
-#define CERT "./self-signed-cert/server-cert.pem"
-#define pKEY "./self-signed-cert/server-pKey.pem"
+#define CERT "./server/self-signed-cert/server-cert.pem"
+#define pKEY "./server/self-signed-cert/server-pKey.pem"
 
 int PORT = 8000;
 
@@ -61,6 +62,29 @@ void ShowCerts(SSL * ssl)
 	}
 }
 
+void change_root(){
+	char * tok;
+	char *delim = "/";
+	char buf[BUFF_SIZE], dir[BUFF_SIZE];
+
+	// Get the current dir name
+	tok = strtok(getcwd(buf,BUFF_SIZE), delim);
+	while(tok != NULL){
+		printf("%s\n", tok);
+		strcpy(dir, tok);
+		tok = strtok(NULL, delim);
+	}
+	printf("%s\n",dir);
+
+	// Back to working root dir if not in ROOT
+	if (strcmp(ROOT, dir) != 0) {
+		chdir("..");
+		memset(buf,'\0',BUFF_SIZE);
+		printf("%s\n",getcwd(buf,BUFF_SIZE));
+	}
+
+}
+
 void parsing_cmd(int argc, char const *argv[]){
 	if (argc > 2){
 		perror("Input format:\n1. ./server.o {PORT} or\n2. ./server.o");
@@ -69,6 +93,7 @@ void parsing_cmd(int argc, char const *argv[]){
 	else if(argc == 2) {
 		PORT = atoi(argv[1]);
 	}
+	change_root();
 	printf("Input format:\n1. ./server.o {PORT} or\n2. ./server.o\n\n");
 	printf("Open server at port: %d\n", PORT);
 }
