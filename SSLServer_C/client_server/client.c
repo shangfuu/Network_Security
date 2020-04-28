@@ -1,98 +1,17 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <string.h>
-
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <signal.h>
-
-#include <openssl/ssl.h>
-#include <openssl/err.h>
-
-#define LIMIT_CONNECT 20
-#define BUFF_SIZE 4096
-#define ROOT "SSLServer_C"
+#include "SSL.h"
 
 #define CA_CERT "./CA/Real-CA/CA-cert.pem"
 #define FAKE_CA_CERT "./CA/Fake-CA/Fake-CA-cert.pem"
 
-#define CERT "./client/self-signed-cert/client-cert.pem"
-#define pKEY "./client/self-signed-cert/client-pKey.pem"
-
-int PORT = 8000;
-char* HOST_NAME = "127.0.0.1";
+#define CERT "./client_server/self-signed-cert/client-cert.pem"
+#define pKEY "./client_server/self-signed-cert/client-pKey.pem"
 
 enum {real, fake} CA = real;
 
-void init_openSSL(){
-	SSL_library_init();
-	SSL_load_error_strings();
-	OpenSSL_add_all_algorithms();
-}
-
-void clear_openSSL(){
-	ERR_free_strings();
-	EVP_cleanup();
-}
-
-void error(char *msg){
-	perror(msg);
-	ERR_print_errors_fp(stderr);
-	exit(EXIT_FAILURE);
-}
-
-void ShowCerts(SSL * ssl)
-{
-	X509 *cert;
-	char *line;
-	
-	if ((cert = SSL_get_peer_certificate(ssl)) != NULL) {
-		printf("\n------Show Certificates-------\n");
-		printf("Connected with %s encryption\n", SSL_get_cipher(ssl));
-
-		printf("Digital certificate information:\n");
-    	line = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
-    	printf("Certificate: %s\n", line);
-    	free(line);
-    	line = X509_NAME_oneline(X509_get_issuer_name(cert), 0, 0);
-    	printf("Issuer: %s\n", line);
-    	free(line);
-		X509_free(cert);
-		printf("-----------------------------\n\n");
-	}
-  	else {
-		printf("----No certificate information！-----\n");
-	}
-}
-
-void change_root(){
-	char * tok;
-	char *delim = "/";
-	char buf[BUFF_SIZE], dir[BUFF_SIZE];
-
-	// Get the current dir name
-	tok = strtok(getcwd(buf,BUFF_SIZE), delim);
-	while(tok != NULL){
-		printf("%s\n", tok);
-		strcpy(dir, tok);
-		tok = strtok(NULL, delim);
-	}
-	printf("%s\n",dir);
-
-	// Back to working root dir if not in ROOT
-	if (strcmp(ROOT, dir) != 0) {
-		chdir("..");
-		memset(buf,'\0',BUFF_SIZE);
-		printf("%s\n",getcwd(buf,BUFF_SIZE));
-	}
-
-}
-
 void cmd_hint(){
-	printf(" Input format:\n1. ./server.o {-r/-f} {hostname} {PORT}\n2. ./sever.o {-r/-f} {PORT}\
-			\n3. ./server.o {-r/-f}\n4. ./server.o\n");
-	printf("Default {hostname}: 127.0.0.1, {PORT}: 8000, {-r/-f}: Real\n");
+	printf(" Input format:\n1. ./client.o {-r/-f} {hostname} {PORT}\n2. ./client.o {-r/-f} {PORT}\
+			\n3. ./client.o {-r/-f}\n4. ./client.o\n");
+	printf("Default {hostname}: 127.0.0.1, {PORT}: 8000, {-r/-f}: Real CA\n");
 }
 
 void parsing_cmd(int argc, char const *argv[]){
@@ -122,15 +41,8 @@ void parsing_cmd(int argc, char const *argv[]){
 	}
 
 	cmd_hint();
+	change_root();
 	printf("Connect to server at %s port: %d\n\n", HOST_NAME, PORT);
-}
-
-SSL_CTX* create_SSL_CTX(SSL_METHOD *method){
-	SSL_CTX * ssl_ctx;
-	if((ssl_ctx = SSL_CTX_new(method)) == NULL){
-		error("Error SSL CTX create: ");
-	}
-	return ssl_ctx;
 }
 
 void configure_SSL_CTX(SSL_CTX *ctx){
@@ -174,7 +86,7 @@ int create_socket(){
 	struct sockaddr_in server_addr;
 
 	// Create new socket
-	if((sockFD = socket(AF_INET,SOCK_STREAM,0))==0){
+	if((sockFD = socket(AF_INET,SOCK_STREAM,0)) < 0){
 		perror("Socket Error");
 		exit(EXIT_FAILURE);
 	}

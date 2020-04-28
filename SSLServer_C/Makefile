@@ -1,15 +1,12 @@
-SERVER = ./server
-CLIENT = ./client
+SRC = ./client_server
 CA = ./CA
 
 all:
 	+$(MAKE) -C $(CA)
-	+$(MAKE) -C $(SERVER)
-	+$(MAKE) -C $(CLIENT)
+	+$(MAKE) -C $(SRC)
 
 .PHONY: clean
 clean:
 	@echo "Cleaning object and pem files in all subdir..."
-	+$(MAKE) -C $(SERVER) clean
-	+$(MAKE) -C $(CLIENT) clean
+	+$(MAKE) -C $(SRC) clean
 	+$(MAKE) -C $(CA) clean
