@@ -139,7 +139,9 @@ int main(int argc, char const *argv[]){
 
 	// Create SSL connect
 	if(SSL_connect(ssl) != 1){
+		printf("-- ERROR SSL CONNECT --\nError msg:\n");
 		ERR_print_errors_fp(stderr);
+		exit(EXIT_FAILURE);
 	}
 	else {
     	ShowCerts(ssl);

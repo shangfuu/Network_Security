@@ -129,6 +129,7 @@ int main(int argc, char const *argv[]){
 		
 		// Wait for client to do TSL/SSL handshake
 		if (SSL_accept(ssl) != 1) {
+			printf("\n-- Some one try to connect but failed --\nError msg:\n");
 			ERR_print_errors_fp(stderr);
 		}
 		else {
