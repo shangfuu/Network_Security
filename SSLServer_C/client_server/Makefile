@@ -21,7 +21,7 @@ FAKE_CA_ROOT = ../CA/Fake-CA/
 FAKE_CA_cert = $(FAKE_CA_ROOT)Fake-CA-cert.pem
 FAKE_CA_key = $(FAKE_CA_ROOT)Fake-CA-pKey.pem
 
-all: make_dir client client_selfSignedCertificate client_Fake_selfSignedCertificate server server_selfSignedCertificate
+all: make_dir client server
 
 make_dir:
 	# Create folder to put SSC files
@@ -31,7 +31,20 @@ make_dir:
 server: server.c SSL.h
 	$(CC) -o server.o server.c $(CFLAGS) $(OPENSSL_FLAGS)
 
-server_selfSignedCertificate:
+
+client: client.c SSL.h
+	$(CC) -o client.o client.c $(CFLAGS) $(OPENSSL_FLAGS)
+
+
+.PHONY: clean Gen_SSC_Server Gen_SSC_Client
+clean:
+	@echo "Cleaning Object Pem CSR file..."
+	-rm *.o
+	-rm *.pem
+	-rm *.csr
+	-rm -rf $(SSC_ROOT)
+
+Gen_SSC_Server:
 	# Create RSA key pair for server with 2048 bits.
 	$(SSL) genrsa -out $(S_pKey) 2048
 	# Generate CSR for server using private key.
@@ -39,10 +52,7 @@ server_selfSignedCertificate:
 	# Self-sign the CSR using CA certificate.
 	$(SSL) x509 -req -days 365 -in $(S_CSR) -CA $(CA_cert) -CAkey $(CA_key) -CAcreateserial -out $(S_CERT)
 
-client: client.c SSL.h
-	$(CC) -o client.o client.c $(CFLAGS) $(OPENSSL_FLAGS)
-
-client_selfSignedCertificate:
+Gen_SSC_Client:
 	# Create RSA key pair for server with 2048 bits.
 	$(SSL) genrsa -out $(C_pKey) 2048
 	# Generate CSR for server using private key.
@@ -50,15 +60,8 @@ client_selfSignedCertificate:
 	# Self-sign the CSR using CA certificate.
 	$(SSL) x509 -req -days 365 -in $(C_CSR) -CA $(CA_cert) -CAkey $(CA_key) -CAcreateserial -out $(C_CERT)
 
-client_Fake_selfSignedCertificate:
+	# FAKE CA
 	# Self-sign the CSR using Fake-CA certificate.
 	$(SSL) x509 -req -days 365 -in $(C_CSR) -CA $(FAKE_CA_cert) -CAkey $(FAKE_CA_key) -CAcreateserial -out $(SSC_ROOT)Fake-client-cert.pem
 	
-.PHONY: clean
-clean:
-	@echo "Cleaning Object Pem CSR file..."
-	-rm *.o
-	-rm *.pem
-	-rm *.csr
-	-rm -rf $(SSC_ROOT)
 
