@@ -13,7 +13,8 @@ F_CERT = $(FAKE_CA_ROOT)Fake-CA-cert.pem
 all : generateCA generateFakeCA
 
 generateCA: 
-	# Create Folder
+	# Real-CA
+	# Create Real-CA Folder
 	-rm -rf $(CA_ROOT)
 	mkdir $(CA_ROOT)
 	# Generate RSA private key for CA using 2048 bits.
@@ -22,7 +23,8 @@ generateCA:
 	$(SSL) req -x509 -new -nodes -key $(pKey) -subj "/C=TW/ST=Taiwan/L=Taipei City/O=NTUST/OU=B10615045/CN=CA" -days 365 -out $(CERT)
 
 generateFakeCA:
-	# Create Folder
+	# Fake-CA
+	# Create Fake-CA Folder
 	-rm -rf $(FAKE_CA_ROOT)
 	mkdir $(FAKE_CA_ROOT)
 	# Generate RSA private key for CA using 2048 bits.

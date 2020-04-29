@@ -19,7 +19,6 @@ void parsing_cmd(int argc, char const *argv[]){
 }
 
 void configure_SSL_CTX(SSL_CTX * ctx){
-
 	// Verify client
 	// Set to require peer (client) certificate verification
 	SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
@@ -43,7 +42,6 @@ void configure_SSL_CTX(SSL_CTX * ctx){
 	if (!SSL_CTX_check_private_key(ctx)){
 		error("Verify private key Error");
 	}
-
 }
 
 int create_socket(){

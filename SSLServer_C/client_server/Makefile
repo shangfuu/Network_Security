@@ -53,6 +53,7 @@ Gen_SSC_Server:
 	$(SSL) x509 -req -days 365 -in $(S_CSR) -CA $(CA_cert) -CAkey $(CA_key) -CAcreateserial -out $(S_CERT)
 
 Gen_SSC_Client:
+	# REAL CA
 	# Create RSA key pair for server with 2048 bits.
 	$(SSL) genrsa -out $(C_pKey) 2048
 	# Generate CSR for server using private key.

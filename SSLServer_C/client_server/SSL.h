@@ -74,7 +74,6 @@ void change_root(){
 	if (strcmp(ROOT, dir) != 0) {
 		chdir("..");
 	}
-
 }
 
 SSL_CTX* create_SSL_CTX(SSL_METHOD *method){
