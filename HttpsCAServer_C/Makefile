@@ -1,24 +1,12 @@
-CC= gcc
-CXX = g++
-CFLAGS = -g -W -Wall
+SRC = ./WebServer
+CA = ./CA
 
-all: server CGI_view CGI_insert
-
-server: server.c http.h
-	$(CC) -o server.o server.c $(CFLAGS)
-
-CGI_view: CGI_view.c
-	$(CC) -o view.cgi CGI_view.c $(CFLAGS)
-
-CGI_insert: CGI_insert.c
-	$(CC) -o insert.cgi CGI_insert.c $(CFLAGS)
-
-# client: client_TCP.c
-#	$(CC) -o client.o client_TCP.c $(CFLAGS)
+all:
+	+$(MAKE) -C $(CA)
+	+$(MAKE) -C $(SRC)
 
 .PHONY: clean
 clean:
-	@echo "Clean obj and cgi files..."
-	-rm *.o
-	-rm *.cgi
-
+	@echo "Cleaning object and pem files in all subdir..."
+	+$(MAKE) -C $(SRC) clean
+	+$(MAKE) -C $(CA) clean

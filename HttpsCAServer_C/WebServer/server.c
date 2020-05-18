@@ -1,9 +1,10 @@
 #include "http.h"
+#include "SSL.h"
 
-void CGI(int,char*,char* , Header);
-void handle_connect(int, struct sockaddr_in *);
+void CGI(SSL*,char*,char* , Header);
+void handle_connect(SSL*, struct sockaddr_in *);
 
-void CGI(int new_sockFD, char* cgi_type, char* file_name, Header header) {
+void CGI(SSL* ssl, char* cgi_type, char* file_name, Header header) {
 	// Create two pipe used to connect with CGI
 	int cgiSTDIN[2];	// Will used to dup stdin
     int cgiSTDOUT[2];	// Will used to dup stdout
@@ -50,6 +51,8 @@ void CGI(int new_sockFD, char* cgi_type, char* file_name, Header header) {
 
 			char c;
 			int status;
+
+			printf("%s\n", file_name);
 			// Send filename to CGI
 			write(cgiSTDIN[1], file_name,strlen(file_name));
 			
@@ -64,11 +67,11 @@ void CGI(int new_sockFD, char* cgi_type, char* file_name, Header header) {
 				// output the message to terminal
 				write(STDOUT_FILENO, &c, 1);
 				// Send to socket
-				write(new_sockFD, &c, 1);
+				SSL_write(ssl, &c, 1);
 			}
 			// output the message to terminal, and send to socket
 			send(STDOUT_FILENO, "\n", 1, 0);
-			send(new_sockFD,"\n",1,0);
+			SSL_write(ssl,"\n",1);
 
             // connection finish
             close(cgiSTDOUT[0]);
@@ -76,25 +79,21 @@ void CGI(int new_sockFD, char* cgi_type, char* file_name, Header header) {
             waitpid(pid, &status, 0);
 		}
 	}
-
 }
 
-void handle_connect(int new_sockFD, struct sockaddr_in *client_addr){
+void handle_connect(SSL* ssl, struct sockaddr_in *client_addr){
 	
 	char request[BUFF_SIZE] = {0};	// Http request
 	char resource[BUFF_SIZE] = {0}; // Resource in server
 
 	// Recieve the Client request
-	read(new_sockFD, request, BUFF_SIZE);
+	SSL_read(ssl, request, BUFF_SIZE);
 	
 	printf("------Request Header:------\n%s \n",request);
 	
 	// Parsing the request header
 	Header header = request_header(request);
-	// printf("Header Method: %s, Url: %s, Protocol: %s\n",header.Method,header.Url,header.Protocol);
-	// printf("Header CL: %s\n",header.Content_Length);
-	// printf("Header CT: %s\n",header.Content_Type);
-	// printf("Header QUERY: %s\n",header.Query);
+
 	printf("--DEBUG--\nGet request from %s:%d \"%s %s %s\"\n------\n", inet_ntoa(client_addr->sin_addr), ntohs(client_addr->sin_port), header.Method,header.Url,header.Protocol);
 
 	// Check if HTTP request
@@ -121,36 +120,40 @@ void handle_connect(int new_sockFD, struct sockaddr_in *client_addr){
 			}
 
 			// The Url resource
-			strcpy(resource,ROOT);
+			strcpy(resource,WEBROOT);
 			strcat(resource,header.Url);	// e.g. "ROOT/xxx/DEFAULT_PAGE"
 			
+			printf("Request page: %s\n", resource);
 			// Open the resource file
-			int fd = open(resource,O_RDONLY);
+			int fd = open(resource, O_RDONLY);
 
 			// File not found, cause 404
 			if (fd == -1){
 				printf("404 Not Found\n");
 				// Send 404 Header
-				response_header(new_sockFD,STATUS_404);
+				response_header(ssl,STATUS_404);
 
 				// Open the 404.html
 				memset(resource, 0, BUFF_SIZE);
-				strcpy(resource,ROOT);
+				strcpy(resource,WEBROOT);
 				strcat(resource,"/404.html");
-				
+
 				// Send the 404.html
-				CGI(new_sockFD, VIEW_CGI, resource, header);
+				CGI(ssl, VIEW_CGI, resource, header);
 			}
 			else{
 				// Send 200 Header
-				response_header(new_sockFD,STATUS_200);
+				response_header(ssl,STATUS_200);
 
 				// Handle GET request
-				if(method == 1)
-					CGI(new_sockFD, VIEW_CGI, resource, header);
+				if(method == 1){
+					CGI(ssl, VIEW_CGI, resource, header);
+					printf("GET\n");
+				}
 				// Handle POST request
 				else if(method == 2){
-					CGI(new_sockFD, INSERT_CGI, resource, header);
+					CGI(ssl, INSERT_CGI, resource, header);
+					printf("POST\n");
 				}
 			}
 			close(fd);
@@ -162,51 +165,44 @@ int main(int argc,char const *argv[]){
 	
 	// Parsing the cmd input
 	Parsing_CMD(argc, argv);
-	
+
 	int sockFD, new_sockFD;
-	struct sockaddr_in server_addr, client_addr;
-	int cli_addr_len = sizeof(client_addr);
+	SSL_CTX *ssl_ctx;
 	
-	// Create new socket
-	if((sockFD = socket(AF_INET,SOCK_STREAM,0))==0){
-		perror("Socket Error:");
-		exit(EXIT_FAILURE);
-	}
+	// Initialize OpenSSL
+	init_openSSL();
 
-	// Set Socket to be reusable address
-	int yes = 1;
-	if(setsockopt(sockFD,SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1){
-		perror("Setting socket option to SO_REUSEADDR");
-		exit(EXIT_FAILURE);
-	}
-
-	// Binding
-	server_addr.sin_family = AF_INET;
-	server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-	server_addr.sin_port = htons(PORT);
-
-	memset(server_addr.sin_zero, '\0',sizeof(server_addr.sin_zero));
+	// Create new SSL_CTX to establish TLS/SSL enabled connections
+	SSL_METHOD *method = SSLv23_server_method();
+	ssl_ctx = create_SSL_CTX(method);
 	
-	if(bind(sockFD,(struct sockaddr *)&server_addr,sizeof(server_addr)) < 0){
-		perror("Bind Error: ");
-		exit(EXIT_FAILURE);
-	}
-	// Ready to accept new connection
-	if(listen(sockFD, LIMIT_CONNECT) < 0){
-		perror("Listen Error: ");
-		exit(EXIT_FAILURE);
-	}
-	
-	// Ignore SIGCHLD to avoid zombie threads
-    signal(SIGCHLD,SIG_IGN);	
+	// Configure the Certificate and Private Key file
+	configure_SSL_CTX(ssl_ctx);
+
+	// Create socket
+	sockFD = create_socket();
 	
 	pid_t pid;
-
 	while(1){
+
+		struct sockaddr_in client_addr;
+		int cli_addr_len = sizeof(client_addr);
+		SSL *ssl;
+
 		// Takes first connection request and create new socket
 		if((new_sockFD = accept(sockFD,(struct sockaddr *)&client_addr,(socklen_t*)&cli_addr_len)) < 0){
 			perror("Accept Error: ");
 			exit(EXIT_FAILURE);
+		}
+
+		// Create a SSL based on ssl_ctx
+		ssl = SSL_new(ssl_ctx);
+		SSL_set_fd(ssl, new_sockFD);
+
+		// Wait for client to do TSL/SSL handshake
+		if (SSL_accept(ssl) != 1) {
+			printf("\n-- Some one try to connect but failed --\nError msg:\n");
+			ERR_print_errors_fp(stderr);
 		}
 		else {
 			// Multi client
@@ -220,17 +216,26 @@ int main(int argc,char const *argv[]){
 					// Only handle the connection
 					close(sockFD);
 
-					handle_connect(new_sockFD, &client_addr);
+					SSL_write(ssl,"HHHH\n", strlen("HHHH\n"));
+					// handle_connect(ssl, &client_addr);
 
 					shutdown(new_sockFD,SHUT_RDWR);	// Close the socket
 					exit(EXIT_SUCCESS);
 				}
 				// Parent process
 				else{
+					// Close newsocket
 					close(new_sockFD);
 				}
 			}
 		}
+		SSL_shutdown(ssl);
+		SSL_free(ssl);
 	}
+	// Close SSL_CTX and sockFD
+	close(sockFD);
+	SSL_CTX_free(ssl_ctx);
+	clear_openSSL();
+
 	return 0;
 }
