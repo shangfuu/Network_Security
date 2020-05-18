@@ -28,7 +28,6 @@
 #define LIMIT_CONNECT 50
 
 #define ROOT "HttpsCAServer_C"
-
 #define HOST "B10615045.com"
 
 // Status code
@@ -36,8 +35,8 @@
 #define STATUS_200 "HTTP/1.1 200 Ok\r\n"
 
 // CGI
-#define VIEW_CGI "./view.cgi"
-#define INSERT_CGI "./insert.cgi"
+#define VIEW_CGI "./WebServer/view.cgi"
+#define INSERT_CGI "./WebServer/insert.cgi"
 
 // PORT number set default as 8000
 int PORT = 8000;
@@ -203,7 +202,7 @@ void response_header(SSL* new_sockFD, char * status){
 	SSL_write(new_sockFD, buffer,strlen(buffer));
 	printf("%s",buffer);
 	
-	SSL_write(new_sockFD,"\r\n",2);
+	SSL_write(new_sockFD,"\r\n\r\n",4);
 	printf("\n");
 }
 

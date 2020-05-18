@@ -16,7 +16,11 @@
 #define BUFF_SIZE 4096
 #endif
 
-#define CA_CERT "./CA/Real-CA/CA-cert.pem"
+/*
+* This part of Define should not be change, 
+* unless you change the dir or filename.
+*/
+#define CA_CERT "./CA/CA-cert.pem"
 #define SERVER_CERT "./WebServer/self-signed-cert/server-cert.pem"
 #define SERVER_pKEY "./WebServer/self-signed-cert/server-pKey.pem"
 

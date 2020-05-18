@@ -1,18 +1,11 @@
 SSL = openssl
 
-CA_ROOT = ./Real-CA/
-
-pKey = $(CA_ROOT)CA-pKey.pem
-CERT = $(CA_ROOT)CA-cert.pem
-
+pKey = CA-pKey.pem
+CERT = CA-cert.pem
 
 all : generateCA
 
 generateCA: 
-	# Real-CA
-	# Create Real-CA Folder
-	-rm -rf $(CA_ROOT)
-	mkdir $(CA_ROOT)
 	# Generate RSA private key for CA using 2048 bits.
 	$(SSL) genrsa -des3 -out $(pKey) 2048
 	# Generate certificate of CA
@@ -24,5 +17,4 @@ clean:
 	@echo "Cleaning pem srl files..."
 	-rm *.pem
 	-rm *.srl
-	-rm -rf $(CA_ROOT)
 

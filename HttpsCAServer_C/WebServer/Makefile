@@ -10,12 +10,12 @@ S_pKey = $(SSC_ROOT)server-pKey.pem
 S_CERT = $(SSC_ROOT)server-cert.pem
 S_CSR = $(SSC_ROOT)server.csr
 
-CA_ROOT = ../CA/Real-CA/
+CA_ROOT = ../CA/
 CA_cert = $(CA_ROOT)CA-cert.pem
 CA_key = $(CA_ROOT)CA-pKey.pem
 
 
-all: server CGI_view CGI_insert make_dir
+all: server CGI_view CGI_insert
 
 server: server.c http.h SSL.h
 	$(CC) -o server.o server.c $(CFLAGS) $(OPENSSL_FLAGS)
@@ -25,11 +25,6 @@ CGI_view: CGI_view.c
 
 CGI_insert: CGI_insert.c
 	$(CC) -o insert.cgi CGI_insert.c $(CFLAGS) $(OPENSSL_FLAGS)
-
-make_dir:
-	# Create folder to put SSC files
-	-rm -rf $(SSC_ROOT)
-	mkdir $(SSC_ROOT)
 
 .PHONY: clean Gen_SSC_Server
 clean:
@@ -41,6 +36,8 @@ clean:
 	-rm -rf $(SSC_ROOT)
 
 Gen_SSC_Server:
+	# Create folder to put SSC files
+	-mkdir $(SSC_ROOT)
 	# Create RSA key pair for server with 2048 bits.
 	$(SSL) genrsa -out $(S_pKey) 2048
 	# Generate CSR for server using private key.

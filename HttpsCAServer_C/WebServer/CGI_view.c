@@ -26,8 +26,6 @@ int main(void){
     // Read from stdin fd, the file name need to open
     read(STDIN_FILENO,buf,unread);
 
-    printf("CGI: %s\n", buf);
-
     // Open the resource file
 	int fd = open(buf,O_RDONLY);
     if(fd == -1){

@@ -51,10 +51,9 @@ void CGI(SSL* ssl, char* cgi_type, char* file_name, Header header) {
 
 			char c;
 			int status;
-
-			printf("%s\n", file_name);
+			
 			// Send filename to CGI
-			write(cgiSTDIN[1], file_name,strlen(file_name));
+			write(cgiSTDIN[1], file_name, strlen(file_name));
 			
 			if (strcmp(cgi_type, INSERT_CGI) == 0){
 				// Send the query
@@ -131,7 +130,7 @@ void handle_connect(SSL* ssl, struct sockaddr_in *client_addr){
 			if (fd == -1){
 				printf("404 Not Found\n");
 				// Send 404 Header
-				response_header(ssl,STATUS_404);
+				response_header(ssl, STATUS_404);
 
 				// Open the 404.html
 				memset(resource, 0, BUFF_SIZE);
@@ -148,12 +147,10 @@ void handle_connect(SSL* ssl, struct sockaddr_in *client_addr){
 				// Handle GET request
 				if(method == 1){
 					CGI(ssl, VIEW_CGI, resource, header);
-					printf("GET\n");
 				}
 				// Handle POST request
 				else if(method == 2){
 					CGI(ssl, INSERT_CGI, resource, header);
-					printf("POST\n");
 				}
 			}
 			close(fd);
@@ -195,42 +192,41 @@ int main(int argc,char const *argv[]){
 			exit(EXIT_FAILURE);
 		}
 
-		// Create a SSL based on ssl_ctx
-		ssl = SSL_new(ssl_ctx);
-		SSL_set_fd(ssl, new_sockFD);
-
-		// Wait for client to do TSL/SSL handshake
-		if (SSL_accept(ssl) != 1) {
-			printf("\n-- Some one try to connect but failed --\nError msg:\n");
-			ERR_print_errors_fp(stderr);
+		// Multi client
+		if((pid = fork()) < 0){	// Fork Error
+			perror("Fork Error: ");
+			exit(EXIT_FAILURE);
 		}
-		else {
-			// Multi client
-			if((pid = fork()) < 0){	// Fork Error
-				perror("Fork Error: ");
-				exit(EXIT_FAILURE);
+		else{
+			// Child process
+			if((pid = fork()) == 0){
+
+				// Create a SSL based on ssl_ctx
+				ssl = SSL_new(ssl_ctx);
+				SSL_set_fd(ssl, new_sockFD);
+
+				// Wait for client to do TSL/SSL handshake
+				if (SSL_accept(ssl) != 1) {
+					// printf("\n-- Some one try to connect but failed --\nError msg:\n");
+					// ERR_print_errors_fp(stderr);
+				}
+				else {
+					// SSL_write(ssl,"Hello\n", strlen("Hello\n"));
+					handle_connect(ssl, &client_addr);
+				}
+
+				shutdown(new_sockFD, SHUT_RDWR);	// Close the socket
+				close(sockFD);
+				SSL_shutdown(ssl);
+				SSL_free(ssl);
+				exit(EXIT_SUCCESS);
 			}
+			// Parent process
 			else{
-				// Child process
-				if((pid = fork()) == 0){
-					// Only handle the connection
-					close(sockFD);
-
-					SSL_write(ssl,"HHHH\n", strlen("HHHH\n"));
-					// handle_connect(ssl, &client_addr);
-
-					shutdown(new_sockFD,SHUT_RDWR);	// Close the socket
-					exit(EXIT_SUCCESS);
-				}
-				// Parent process
-				else{
-					// Close newsocket
-					close(new_sockFD);
-				}
+				// Close newsocket
+				close(new_sockFD);
 			}
 		}
-		SSL_shutdown(ssl);
-		SSL_free(ssl);
 	}
 	// Close SSL_CTX and sockFD
 	close(sockFD);
