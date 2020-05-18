@@ -1,0 +1,8 @@
+*.pem
+*.srl
+*.csr
+.vscode
+
+self-signed-cert/
+Fake-CA/
+Real-CA/
