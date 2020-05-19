@@ -5,6 +5,7 @@
 #include <sys/ioctl.h>
 #include <string.h>
 #include <fcntl.h>
+#include <time.h>
 
 /*
 Open and read the file,
@@ -25,11 +26,12 @@ int main(void){
     }
     buf = (char*)malloc(sizeof(char)*(unread+1));
 
-    // Read from stdin fd: the file name, query
+    // Read from stdin fd: the file name, query, LOG FILE name
     read(STDIN_FILENO,buf,unread);
 
     char* filename = strtok(buf,"\n");
     char* query = strtok(NULL,"\n");
+    char* LOG_FILE = strtok(NULL, "\n");
 
     // Open the resource file
 	int fd = open(filename, O_RDWR);
@@ -39,15 +41,9 @@ int main(void){
     }
     else {
         // Get the file size using fd
-        off_t fsize;
-
-        // write the query at the end of file
-        lseek(fd,0,SEEK_END); 
-        write(fd, "\n<h4>",5);
-        write(fd, query, strlen(query));
-        write(fd,"</h4>",5);
+        off_t fsize;        
         
-        lseek(fd,0,SEEK_SET);   // Seek back to the head of th file
+        // Write the filename file back to server.
         fsize = lseek(fd,0,SEEK_END); 
         free(buf);
         buf = (char*)malloc(sizeof(char)*(fsize+1));
@@ -57,6 +53,28 @@ int main(void){
         read(fd, buf, fsize);
         // Output to STDOUT
         printf("%s\n",buf);
+        free(buf);
+        close(fd);
+
+        // Open LOG FILE
+        int fd_L = open(LOG_FILE, O_RDWR);
+        if (fd_L == -1){
+            perror("LOG FILE not found");
+        }
+        else {
+            // write the query at the end of LOG FILE
+            lseek(fd_L, 0, SEEK_END);
+
+            // write time
+            time_t current = time(NULL);
+            char buffer[64];
+            char *temp = strtok(ctime(&current), "\n");
+            sprintf(buffer,"%s: ", temp);
+            write(fd_L, buffer, strlen(buffer));
+
+            write(fd_L, query, strlen(query));
+            write(fd_L, "<br>\n", 5);
+            close(fd_L);
+        }
     }
-    close(fd);
 }

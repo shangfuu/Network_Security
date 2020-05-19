@@ -59,8 +59,11 @@ void CGI(SSL* ssl, char* cgi_type, char* file_name, Header header) {
 				// Send the query
 				write(cgiSTDIN[1],"\n",1);
 				write(cgiSTDIN[1],header.Query,strlen(header.Query));
+				// Send the LOG FILE name
+				write(cgiSTDIN[1],"\n",1);
+				write(cgiSTDIN[1], LOG_PAGE, strlen(LOG_PAGE));
 			}
-
+			
 			// receive the message from the  CGI program
 			while (read(cgiSTDOUT[0], &c, 1) > 0){
 				// output the message to terminal
