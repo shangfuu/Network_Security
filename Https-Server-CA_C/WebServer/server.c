@@ -101,7 +101,11 @@ void handle_connect(SSL* ssl, struct sockaddr_in *client_addr){
 		exit(EXIT_FAILURE);
 	}
 	else{
-		// Get: method = 1, POST, method = 2
+		/* Default:
+		*   Get: method = 1, POST: method = 2. 
+		*  File Copy:
+		*   Get: method = 3
+		*/
 		int method = -1;
 		if(strcmp(header.Method,"GET") == 0)
 			method = 1;
@@ -117,12 +121,21 @@ void handle_connect(SSL* ssl, struct sockaddr_in *client_addr){
 			if(header.Url[strlen(header.Url)-1] == '/'){
 				strcat(header.Url, DEFAULT_PAGE);
 			}
+			
+			printf("Header: %s, %s\n", header.Url, FILE_PAGE);
+
+			// File Copy
+			if (strcmp(header.Url, FILE_PAGE) == 0){
+				if (method == 1)
+					method = 3;
+			}
 
 			// The Url resource
 			strcpy(resource,WEBROOT);
 			strcat(resource,header.Url);	// e.g. "ROOT/xxx/DEFAULT_PAGE"
 			
 			printf("Request page: %s\n", resource);
+
 			// Open the resource file
 			int fd = open(resource, O_RDONLY);
 
@@ -144,13 +157,17 @@ void handle_connect(SSL* ssl, struct sockaddr_in *client_addr){
 				// Send 200 Header
 				response_header(ssl,STATUS_200);
 
-				// Handle GET request
+				// Handle Default GET request
 				if(method == 1){
 					CGI(ssl, VIEW_CGI, resource, header);
 				}
-				// Handle POST request
+				// Handle Default POST request
 				else if(method == 2){
 					CGI(ssl, INSERT_CGI, resource, header);
+				}
+				// Handle FileCopy GET request
+				else if (method == 3){
+					CGI(ssl, FILE_CGI, resource, header);
 				}
 			}
 			close(fd);

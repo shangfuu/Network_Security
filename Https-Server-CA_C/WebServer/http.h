@@ -25,9 +25,10 @@
 // Settings about server
 #define WEBROOT "./WebServer/WebRoot"
 #define DEFAULT_PAGE "index.html"
+#define FILE_PAGE "/files.html"
 #define LIMIT_CONNECT 50
 
-#define ROOT "HttpsCAServer_C"
+#define ROOT "Https-Server-CA_C"
 #define HOST "B10615045.com"
 
 // Status code
@@ -37,6 +38,7 @@
 // CGI
 #define VIEW_CGI "./WebServer/view.cgi"
 #define INSERT_CGI "./WebServer/insert.cgi"
+#define FILE_CGI "./WebServer/files.cgi"
 
 // PORT number set default as 8000
 int PORT = 8000;

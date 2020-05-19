@@ -15,7 +15,7 @@ CA_cert = $(CA_ROOT)CA-cert.pem
 CA_key = $(CA_ROOT)CA-pKey.pem
 
 
-all: server CGI_view CGI_insert
+all: server CGI_view CGI_insert CGI_files
 
 server: server.c http.h SSL.h
 	$(CC) -o server.o server.c $(CFLAGS) $(OPENSSL_FLAGS)
@@ -25,6 +25,9 @@ CGI_view: CGI_view.c
 
 CGI_insert: CGI_insert.c
 	$(CC) -o insert.cgi CGI_insert.c $(CFLAGS) $(OPENSSL_FLAGS)
+
+CGI_files: CGI_files.c
+	$(CC) -o files.cgi CGI_files.c $(CFLAGS) $(OPENSSL_FLAGS)
 
 .PHONY: clean Gen_SSC_Server
 clean:
