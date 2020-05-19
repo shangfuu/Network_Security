@@ -80,6 +80,13 @@ void configure_SSL_CTX(SSL_CTX * ctx){
 	// Various bugs workaround should be rather harmless
 	SSL_CTX_set_options(ctx, SSL_OP_ALL);
 
+
+	// If set SSL_VERIFY_PEER, must set session id context also.
+	static int context_id = 1;
+    if (!SSL_CTX_set_session_id_context(ctx, (const unsigned char*)&context_id, sizeof(context_id))) {
+        error("SSL set session id context failed");
+    }
+
 	// Set the certificate of CA
 	if (SSL_CTX_load_verify_locations(ctx, CA_CERT, NULL) != 1){
 		error("Load verify loactions Error");

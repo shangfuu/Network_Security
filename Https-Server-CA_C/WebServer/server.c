@@ -187,7 +187,7 @@ int main(int argc,char const *argv[]){
 	init_openSSL();
 
 	// Create new SSL_CTX to establish TLS/SSL enabled connections
-	SSL_METHOD *method = SSLv23_server_method();
+	SSL_METHOD *method = TLS_server_method();
 	ssl_ctx = create_SSL_CTX(method);
 	
 	// Configure the Certificate and Private Key file
@@ -201,7 +201,7 @@ int main(int argc,char const *argv[]){
 
 		struct sockaddr_in client_addr;
 		int cli_addr_len = sizeof(client_addr);
-		SSL *ssl;
+		
 
 		// Takes first connection request and create new socket
 		if((new_sockFD = accept(sockFD,(struct sockaddr *)&client_addr,(socklen_t*)&cli_addr_len)) < 0){
@@ -218,24 +218,27 @@ int main(int argc,char const *argv[]){
 			// Child process
 			if((pid = fork()) == 0){
 
-				// Create a SSL based on ssl_ctx
+				SSL *ssl;
+
+				// SSL_set_mode(ssl, SSL_MODE_AUTO_RETRY);
+
+				// Create a SSL based on ssl_ctx and set fd
 				ssl = SSL_new(ssl_ctx);
 				SSL_set_fd(ssl, new_sockFD);
 
-				// Wait for client to do TSL/SSL handshake
+				// Do TSL/SSL handshake
 				if (SSL_accept(ssl) != 1) {
-					// printf("\n-- Some one try to connect but failed --\nError msg:\n");
-					// ERR_print_errors_fp(stderr);
+					ERR_print_errors_fp(stderr);
+					ERR_clear_error();
 				}
 				else {
-					// SSL_write(ssl,"Hello\n", strlen("Hello\n"));
 					handle_connect(ssl, &client_addr);
 				}
 
-				shutdown(new_sockFD, SHUT_RDWR);	// Close the socket
 				close(sockFD);
 				SSL_shutdown(ssl);
 				SSL_free(ssl);
+				shutdown(new_sockFD, SHUT_RDWR);	// Close the socket
 				exit(EXIT_SUCCESS);
 			}
 			// Parent process
