@@ -26,7 +26,7 @@
 #define WEBROOT "./WebServer/WebRoot"
 #define DEFAULT_PAGE "index.html"
 #define FILE_PAGE "/files.html"
-#define LOG_PAGE "./WebServer/WebRoot/log.html"
+#define LOG_PAGE "./WebServer/WebRoot/user.log"
 #define LIMIT_CONNECT 50
 
 #define ROOT "Https-Server-CA_C"

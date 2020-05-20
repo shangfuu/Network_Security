@@ -27,20 +27,20 @@ int main(void){
     read(STDIN_FILENO,buf,unread);
 
     // Open the resource file
-	int fd = open(buf,O_RDONLY);
-    if(fd == -1){
+	FILE* fd = fopen(buf,"rb");
+    if(fd == NULL){
         perror("NOT Found\n");
         exit(EXIT_FAILURE);
     }
     else {
-        off_t fsize;
-        fsize = lseek(fd,0,SEEK_END);   // Get the file size using fd
+        fseek(fd,0,SEEK_END); 
+        int fsize = ftell(fd);
         free(buf);
-        buf = (char*)malloc(sizeof(char)*(fsize+1));
-        lseek(fd,0,SEEK_SET);   // Seek back to the head of th file
+        buf = (char*)malloc(sizeof(char)*(fsize));
+        fseek(fd,0,SEEK_SET);   // Seek back to the head of th file
 
         // Read the file in to buffer
-        read(fd, buf, fsize);
+        fread(buf, fsize, 1, fd);
         // Output to STDOUT
         printf("%s\n",buf);
     }

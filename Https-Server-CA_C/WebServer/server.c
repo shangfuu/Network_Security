@@ -162,14 +162,17 @@ void handle_connect(SSL* ssl, struct sockaddr_in *client_addr){
 
 				// Handle Default GET request
 				if(method == 1){
+					printf("VIEW\n");
 					CGI(ssl, VIEW_CGI, resource, header);
 				}
 				// Handle Default POST request
 				else if(method == 2){
+					printf("INSERT\n");
 					CGI(ssl, INSERT_CGI, resource, header);
 				}
 				// Handle FileCopy GET request
 				else if (method == 3){
+					printf("FILE\n");
 					CGI(ssl, FILE_CGI, resource, header);
 				}
 			}
